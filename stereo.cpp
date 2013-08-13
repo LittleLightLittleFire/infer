@@ -20,15 +20,27 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    std::vector<unsigned char> left;
-    std::vector<unsigned char> right;
+    std::vector<uchar> left, right;
+    uint width, height;
 
-    uint width;
-    uint height;
+    {
+        std::vector<uchar> left_rgba, right_rgba;
 
-    // read the pngs
-    lodepng::decode(left, width, height, argv[1]);
-    lodepng::decode(right, width, height, argv[2]);
+        // read the pngs
+        if (lodepng::decode(left_rgba, width, height, argv[1]) || lodepng::decode(right_rgba, width, height, argv[2])) {
+            std::cout << "Error loading images" << std::endl;
+            return -1;
+        }
+
+        for (uint i = 0; i < left_rgba.size(); i += 4) {
+            // convert to greyscale using hdtv conversion parameters
+            left.push_back(0.2126 * left_rgba[i] + 0.7125 * left_rgba[i + 1] + 0.0772 * left_rgba[i + 2]);
+            right.push_back(0.2126 * right_rgba[i] + 0.7125 * right_rgba[i + 1] + 0.0772 * right_rgba[i + 2]);
+        }
+    }
+
+    for (uchar c : left) {
+    }
 
     // underlying model is of a grid
     const uint nodes = width * height;
