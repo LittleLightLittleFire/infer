@@ -1,12 +1,24 @@
-CFLAGS = -std=c++11
-EXTRA = `pkg-config --libs --cflags opencv`
+CC = clang++
+CFLAGS = -Wall -std=c++11
+LDFLAGS =
+SRCS = stereo.cpp lodepng.cpp
+TARGETS = stereo
 
-all: stero
+OBJS = $(SRCS:.cpp=.o)
 
-.PHONEY: test
+all: $(TARGETS)
 
-stero: stero.cpp
-	g++ $(CFLAGS) $(EXTRA) $< -o $@
+.PHONEY: test clean
 
-test: stero
-	./stero data/left.png data/right.png
+$(TARGETS): $(OBJS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
+
+.cpp.o:
+	$(CC) $(CFLAGS) $(LDFLAGS) -c $< -o $@
+
+test: stereo
+	./stereo data/left.png data/right.png
+
+clean:
+	rm *.o
+	rm $(TARGETS)
