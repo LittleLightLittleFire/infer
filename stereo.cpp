@@ -106,10 +106,10 @@ namespace {
             for (uint x = 1; x < width - 1; ++x) {
                 const uint index = idx(x, y);
                 uint min_label = 0;
-                float min_value = std::numeric_limits<float>::lowest();
+                float min_value = std::numeric_limits<float>::max();
 
                 for (uint i = 0; i < labels; ++i) {
-                    float val = u[idx(x, y+1)].values[i] + d[idx(x, y-1)].values[i] + l[idx(x+1, y)].values[i] + r[idx(x-1, y)].values[i];
+                    float val = u[idx(x, y+1)].values[i] + d[idx(x, y-1)].values[i] + l[idx(x+1, y)].values[i] + r[idx(x-1, y)].values[i] + pot[idx(x, y)].values[i];
 
                     if (val < min_value) {
                         min_label = i;
@@ -170,13 +170,13 @@ int main(int argc, char *argv[]) {
             for (uint x = labels; x < width; ++x) { // offset the index so we don't go out of bounds
                 const uint index = idx(x, y);
                 for (uint p = 0; p < labels; ++p) {
-                    unary_psi[index].values[p] = 0.07f * std::min<float>(abs(static_cast<float>(left[index]) - right[index - p]), 15.0f);
+                    unary_psi[index].values[p] = 0.07f * std::min<float>(abs(static_cast<int>(left[index]) - right[index - p]), 15.0f);
                 }
             }
         }
     }
 
-    std::vector<uchar> result = decode<labels>(10, width, height, unary_psi);
+    std::vector<uchar> result = decode<labels>(5, width, height, unary_psi);
 
     // convert the results into an image
     std::vector<uchar> image(result.size() * 4);
