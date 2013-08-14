@@ -1,5 +1,5 @@
 CC = clang++
-CFLAGS = -Wall -std=c++11
+CFLAGS = -g -O0 -Wall -std=c++11
 LDFLAGS =
 SRCS = stereo.cpp lodepng.cpp
 TARGETS = stereo
