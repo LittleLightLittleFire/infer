@@ -39,6 +39,7 @@ namespace {
     template <uint labels>
     struct message {
         float values[labels];
+        explicit message() : values() { }
     };
 
     /** Compute a new message from inputs */
@@ -177,7 +178,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    std::vector<uchar> result = decode<labels>(1, width, height, unary_psi);
+    std::vector<uchar> result = decode<labels>(5, width, height, unary_psi);
 
     // convert the results into an image
     std::vector<uchar> image(result.size() * 4);
