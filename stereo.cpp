@@ -8,10 +8,12 @@
 #include "lodepng.h"
 
 namespace {
-    // todo: fix the magic numbers
-
     typedef unsigned int uint;
     typedef unsigned char uchar;
+
+    const float linear_scaling = 0.07;
+    const float data_trunc = 15.0;
+    const float data_ceiling = 1.7;
 
     /** Makes indexing two dimensional arrays a bit easier */
     struct indexer {
@@ -39,7 +41,7 @@ namespace {
     template <uint labels>
     struct message {
         float values[labels];
-        explicit message() : values() { }
+        explicit message() : values() { } // default initalisation to 0
     };
 
     /** Compute a new message from inputs */
@@ -56,7 +58,7 @@ namespace {
             // algorithm from Pedro F. Felzenszwalb and Daniel P. Huttenlocher (2006): Efficient Belief Propagation for Early Vision
 
             // compute the minimum to truncate with
-            const float trunc = 1.7f + *std::min_element(out.values, out.values + labels);
+            const float trunc = data_ceiling + *std::min_element(out.values, out.values + labels);
 
             // first pass, equivalent to a haskell `scanl (min . succ)`
             for (uint i = 1; i < labels; ++i) {
@@ -72,7 +74,7 @@ namespace {
         }
 
         // normalise
-        const float sum = std::accumulate(out.values, out.values + labels, 0) / labels;
+        const float sum = std::accumulate(out.values, out.values + labels, 0.0f) / labels;
         std::transform(out.values, out.values + labels, out.values, [sum](const float x){ return x - sum; });
     }
 
@@ -140,10 +142,9 @@ int main(int argc, char *argv[]) {
     std::vector<uchar> left, right;
     uint width, height;
 
-    {
+    { // image loading
         std::vector<uchar> left_rgba, right_rgba;
 
-        // read the pngs
         if (lodepng::decode(left_rgba, width, height, argv[1]) || lodepng::decode(right_rgba, width, height, argv[2])) {
             std::cout << "error loading images" << std::endl;
             return 1;
@@ -166,13 +167,12 @@ int main(int argc, char *argv[]) {
     // a 2d array of [index, label] represented as a flat array
     std::vector<message<labels>> unary_psi(nodes);
 
-    {
-        // we are using a window size of 1 pixel
+    { // create the potentials using a window size of 1
         for (uint y = 0; y < height; ++y) {
             for (uint x = labels - 1; x < width; ++x) { // offset the index so we don't go out of bounds
                 const uint index = idx(x, y);
                 for (uint p = 0; p < labels; ++p) {
-                    unary_psi[index].values[p] = 0.07f * std::min<float>(abs(static_cast<int>(left[index]) - right[index - p]), 15.0f);
+                    unary_psi[index].values[p] = linear_scaling * std::min<float>(abs(static_cast<int>(left[index]) - right[index - p]), data_trunc);
                 }
             }
         }
