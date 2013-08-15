@@ -55,7 +55,7 @@ namespace {
             // algorithm from Pedro F. Felzenszwalb and Daniel P. Huttenlocher (2006): Efficient Belief Propagation for Early Vision
 
             // compute the minimum to truncate with
-            const float trunc = 1.5f + *std::min_element(out.values, out.values + labels);
+            const float trunc = 1.7f + *std::min_element(out.values, out.values + labels);
 
             // first pass, equivalent to a haskell `scanl (min . succ)`
             for (uint i = 1; i < labels; ++i) {
@@ -63,7 +63,7 @@ namespace {
             }
 
             // second pass, same thing but with the list reversed
-            for (uint i = labels - 1; i-- > 0; ) {
+            for (int i = labels - 2; i >= 0; --i) {
                 out.values[i] = std::min(out.values[i + 1] + 1.0f, out.values[i]);
             }
 
@@ -88,6 +88,7 @@ namespace {
         indexer idx(width, height);
 
         for (uint i = 0; i < max_iter; ++i) {
+            std::cout << "iter: " << i << std::endl;
             // checkerboard update scheme
             for (uint y = 1; y < height - 1; ++y) {
                 for (uint x = ((y + i) % 2) + 1; x < width - 1; x += 2) {
@@ -109,7 +110,7 @@ namespace {
                 float min_value = std::numeric_limits<float>::max();
 
                 for (uint i = 0; i < labels; ++i) {
-                    float val = u[idx(x, y+1)].values[i] + d[idx(x, y-1)].values[i] + l[idx(x+1, y)].values[i] + r[idx(x-1, y)].values[i] + pot[idx(x, y)].values[i];
+                    const float val = u[idx(x, y+1)].values[i] + d[idx(x, y-1)].values[i] + l[idx(x+1, y)].values[i] + r[idx(x-1, y)].values[i] + pot[idx(x, y)].values[i];
 
                     if (val < min_value) {
                         min_label = i;
@@ -149,8 +150,8 @@ int main(int argc, char *argv[]) {
 
         for (uint i = 0; i < left_rgba.size(); i += 4) {
             // convert to greyscale using hdtv conversion parameters
-            left.push_back(0.2126 * left_rgba[i] + 0.7125 * left_rgba[i + 1] + 0.0772 * left_rgba[i + 2]);
-            right.push_back(0.2126 * right_rgba[i] + 0.7125 * right_rgba[i + 1] + 0.0772 * right_rgba[i + 2]);
+            left.push_back(0.2989 * left_rgba[i] + 0.5870 * left_rgba[i + 1] + 0.1140 * left_rgba[i + 2]);
+            right.push_back(0.2989 * right_rgba[i] + 0.5870 * right_rgba[i + 1] + 0.1140 * right_rgba[i + 2]);
         }
     }
 
@@ -167,7 +168,7 @@ int main(int argc, char *argv[]) {
     {
         // we are using a window size of 1 pixel
         for (uint y = 0; y < height; ++y) {
-            for (uint x = labels; x < width; ++x) { // offset the index so we don't go out of bounds
+            for (uint x = labels - 1; x < width; ++x) { // offset the index so we don't go out of bounds
                 const uint index = idx(x, y);
                 for (uint p = 0; p < labels; ++p) {
                     unary_psi[index].values[p] = 0.07f * std::min<float>(abs(static_cast<int>(left[index]) - right[index - p]), 15.0f);
@@ -176,7 +177,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    std::vector<uchar> result = decode<labels>(5, width, height, unary_psi);
+    std::vector<uchar> result = decode<labels>(1, width, height, unary_psi);
 
     // convert the results into an image
     std::vector<uchar> image(result.size() * 4);
