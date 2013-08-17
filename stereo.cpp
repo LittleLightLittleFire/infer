@@ -5,6 +5,7 @@
 #include <limits>
 #include <cstdlib>
 
+#include "util.h"
 #include "lodepng.h"
 
 namespace {
@@ -14,28 +15,6 @@ namespace {
     const float linear_scaling = 0.07;
     const float data_trunc = 15.0;
     const float data_ceiling = 1.7;
-
-    /** Makes indexing two dimensional arrays a bit easier */
-    struct indexer {
-        const uint width_, height_;
-        explicit indexer(const uint width, const uint height) : width_(width), height_(height) { }
-
-        /** returns the index in a 1d array */
-        uint operator()(const uint x, const uint y) const {
-            return x + width_ * y;
-        }
-
-        template <typename T>
-        const T &operator()(const std::vector<T> &vec, const uint x, const uint y) const {
-            return vec[operator()(x, y)];
-        }
-
-        template <typename T>
-        T &operator()(std::vector<T> &vec, const uint x, const uint y) const {
-            return vec[operator()(x, y)]; // too lazy to do the const cast trick
-        }
-
-    };
 
     /** A vector of floats */
     template <uint labels>
@@ -80,10 +59,6 @@ namespace {
 
     template <uint labels>
     std::vector<uchar> decode(const uint max_iter, const uint width, const uint height, const std::vector<message<labels>> &pot) {
-        // references to [Waineright et al] (2005) : MAP Estimation Via agreement on Trees: Message-Passing and Linear Programming
-        // todo: find the edge apparence probability: rho
-        // create minimal spanning trees with the edges having random weights [0,1], until all the edges are covered, count edge apparences
-
         // allocate space for messages, in four directions (up, down, left and right)
         const uint nodes = width * height;
         std::vector<message<labels>> u(nodes), d(nodes), l(nodes), r(nodes);

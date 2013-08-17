@@ -1,7 +1,7 @@
 CC = clang++
 CFLAGS = -g -O0 -Wall -std=c++11
 LDFLAGS =
-SRCS = stereo.cpp lodepng.cpp
+SRCS = stereo.cpp lodepng.cpp mst.cpp
 TARGETS = stereo
 
 OBJS = $(SRCS:.cpp=.o)
