@@ -37,4 +37,28 @@ struct indexer {
 
 };
 
+/** converts relative coordinates to an edge index, edges are stored in { down, right, down, right ...} order */
+struct edge_indexer {
+    const uint width_, height_;
+    explicit edge_indexer(const uint width, const uint height) : width_(width), height_(height) { }
+
+    unsigned operator()(const uint x, const uint y, const move m) const {
+        switch (m) {
+            case move::UP:    return (x + width_ * (y - 1)) * 2;
+            case move::DOWN:  return (x + width_ * y) * 2;
+            case move::LEFT:  return ((x - 1) + width_ * y) * 2 + 1;
+            case move::RIGHT: return (x + width_ * y) * 2 + 1;
+        }
+    }
+
+    unsigned operator()(const uint idx, const move m) const {
+        switch (m) {
+            case move::UP:    return idx * 2 - width_ * 2;
+            case move::DOWN:  return idx * 2;
+            case move::LEFT:  return (idx - 1) * 2 + 1;
+            case move::RIGHT: return idx * 2 + 1;
+        }
+    }
+};
+
 #endif // UTIL_H

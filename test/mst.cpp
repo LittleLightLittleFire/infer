@@ -1,5 +1,5 @@
 #include "../mst.h"
 
 int main() {
-    get_edge_apparence_prob(384, 288);
+    sample_edge_apparence(384, 288, 20);
 }

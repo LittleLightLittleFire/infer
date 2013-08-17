@@ -1,4 +1,4 @@
-CFLAGS = -g -std=c++11
+CFLAGS = -g -O2 -std=c++11
 
 all: mst
 
