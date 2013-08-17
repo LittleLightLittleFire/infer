@@ -15,6 +15,16 @@ struct indexer {
         return x + width_ * y;
     }
 
+    /** returns the node index after applying the operation */
+    unsigned operator()(const unsigned idx, const move m) const {
+        switch (m) {
+            case move::UP:    return idx - width_;
+            case move::DOWN:  return idx + width_;
+            case move::LEFT:  return idx - 1;
+            case move::RIGHT: return idx + 1;
+        }
+    }
+
     template <typename T>
     const T &operator()(const std::vector<T> &vec, const unsigned x, const unsigned y) const {
         return vec[operator()(x, y)];
