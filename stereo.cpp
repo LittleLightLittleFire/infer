@@ -33,7 +33,7 @@ namespace {
     void inline send_msg(const message<labels> &m1, const message<labels> &m2, const message<labels> &m3, const message<labels> &opp, message<labels> &out, const message<labels> &pot, const float rm1, const float rm2, const float rm3, const float ropp) {
         // compute the new message partially, deal with the pairwise term later
         for (uint i = 0; i < labels; ++i) {
-            out.values[i] = pow(m1.values[i], rm1) + pow(m2.values[i], rm2) + pow(m3.values[i], rm3) + pow(opp.values[i], ropp - 1) + pot.values[i];
+            out.values[i] = m1.values[i] *  rm1 + m2.values[i] * rm2 + m3.values[i] * rm3 + opp.values[i] * (ropp - 1) + pot.values[i];
         }
 
         // find the edgewise with the minimal potential
@@ -77,16 +77,16 @@ namespace {
 
                     // send messages in each direction
                     //        m1                   m2                   m3                   opp                     out             pot
-                    send_msg(idx(u,  x, y+1),    idx(l   , x+1, y),  idx(r,     x-1, y),  idx(d,    x, y-1),  idx(u,  x, y),   idx(pot, x, y),
+                    send_msg(idx(u,  x, y+1),    idx(l   , x+1, y),  idx(r,     x-1, y),  idx(d,    x, y-1),    idx(u, x, y),    idx(pot, x, y),
                              get(up, x, y+1),    get(left, x+1, y),  get(right, x-1, y),  get(down, x, y-1));
 
-                    send_msg(idx(d,    x, y-1),  idx(l   , x+1, y),  idx(r,     x-1, y),  idx(u,  x, y+1),    idx(d, x, y),    idx(pot, x, y),
+                    send_msg(idx(d,    x, y-1),  idx(l   , x+1, y),  idx(r,     x-1, y),  idx(u,  x, y+1),      idx(d, x, y),    idx(pot, x, y),
                              get(down, x, y-1),  get(left, x+1, y),  get(right, x-1, y),  get(up, x, y+1));
 
-                    send_msg(idx(u,  x, y+1),    idx(d,    x, y-1),  idx(r,     x-1, y),  idx(l,    x+1, y),  idx(r, x, y),    idx(pot, x, y),
+                    send_msg(idx(u,  x, y+1),    idx(d,    x, y-1),  idx(r,     x-1, y),  idx(l,    x+1, y),    idx(r, x, y),    idx(pot, x, y),
                              get(up, x, y+1),    get(down, x, y-1),  get(right, x-1, y),  get(left, x+1, y));
 
-                    send_msg(idx(u,  x, y+1),    idx(d,    x, y-1),  idx(l,    x+1, y),   idx(r,     x-1, y), idx(l, x, y),    idx(pot, x, y),
+                    send_msg(idx(u,  x, y+1),    idx(d,    x, y-1),  idx(l,    x+1, y),   idx(r,     x-1, y),   idx(l, x, y),    idx(pot, x, y),
                              get(up, x, y+1),    get(down, x, y-1),  get(left, x+1, y),   get(right, x-1, y));
                 }
             }
@@ -101,10 +101,10 @@ namespace {
                 float min_value = std::numeric_limits<float>::max();
 
                 for (uint i = 0; i < labels; ++i) {
-                    const float val = pow(u[idx(x, y+1)].values[i], get(up,    x, y+1))
-                                    + pow(d[idx(x, y-1)].values[i], get(down,  x, y-1))
-                                    + pow(l[idx(x+1, y)].values[i], get(left,  x+1, y))
-                                    + pow(r[idx(x-1, y)].values[i], get(right, x-1, y))
+                    const float val = u[idx(x, y+1)].values[i] * get(up,    x, y+1)
+                                    + d[idx(x, y-1)].values[i] * get(down,  x, y-1)
+                                    + l[idx(x+1, y)].values[i] * get(left,  x+1, y)
+                                    + r[idx(x-1, y)].values[i] * get(right, x-1, y)
                                     + pot[idx(x, y)].values[i];
 
                     if (val < min_value) {
