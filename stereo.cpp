@@ -1,11 +1,12 @@
+#include <iterator>
 #include <numeric>
 #include <algorithm>
 #include <iostream>
 #include <vector>
 #include <limits>
-#include <cstdlib>
 
 #include "util.h"
+#include "mst.h"
 #include "lodepng.h"
 
 namespace {
@@ -23,33 +24,29 @@ namespace {
         explicit message() : values() { } // default initalisation to 0
     };
 
+    float edgewise(const float x, const float y) {
+        return std::min(std::abs(x - y), data_ceiling);
+    }
+
     /** Compute a new message from inputs */
     template <uint labels>
-    void inline send_msg(const message<labels> &m1, const message<labels> &m2, const message<labels> &m3, const message<labels> &pot, message<labels> &out) {
+    void inline send_msg(const message<labels> &m1, const message<labels> &m2, const message<labels> &m3, const message<labels> &opp, message<labels> &out, const message<labels> &pot, const float rm1, const float rm2, const float rm3, const float ropp) {
         // compute the new message partially, deal with the pairwise term later
         for (uint i = 0; i < labels; ++i) {
-            out.values[i] = m1.values[i] + m2.values[i] + m3.values[i] + pot.values[i]; // expontential form so multiplication is now addition
+            out.values[i] = pow(m1.values[i], rm1) + pow(m2.values[i], rm2) + pow(m3.values[i], rm3) + pow(opp.values[i], ropp - 1) + pot.values[i];
         }
 
-        { // truncate
-            // normally we would be forced to multiply this into the pairwise term which is has the size: labels^2, that would be painful
-            // but since the pairwise term in a special form - max(y_i - y_j, d) (truncated linear model), we could get the result in linear time
-            // algorithm from Pedro F. Felzenszwalb and Daniel P. Huttenlocher (2006): Efficient Belief Propagation for Early Vision
-
-            // compute the minimum to truncate with
-            const float trunc = data_ceiling + *std::min_element(out.values, out.values + labels);
-
-            // first pass, equivalent to a haskell `scanl (min . succ)`
-            for (uint i = 1; i < labels; ++i) {
-                out.values[i] = std::min(out.values[i - 1] + 1.0f, out.values[i]);
+        // find the edgewise with the minimal potential
+        for (uint i = 0; i < labels; ++i) {
+            float min_value = std::numeric_limits<float>::max();
+            for (uint j = 0; j < labels; ++j) {
+                const float value = out.values[i] + edgewise(i, j) * (1 / ropp);
+                if (value < min_value) {
+                    min_value = value;
+                }
             }
 
-            // second pass, same thing but with the list reversed
-            for (int i = labels - 2; i >= 0; --i) {
-                out.values[i] = std::min(out.values[i + 1] + 1.0f, out.values[i]);
-            }
-
-            std::transform(out.values, out.values + labels, out.values, [trunc](const float x){ return std::min(x, trunc); });
+            out.values[i] = min_value;
         }
 
         // normalise
@@ -58,23 +55,39 @@ namespace {
     }
 
     template <uint labels>
-    std::vector<uchar> decode(const uint max_iter, const uint width, const uint height, const std::vector<message<labels>> &pot) {
+    std::vector<uchar> decode(const uint max_iter, const uint width, const uint height, const std::vector<message<labels>> &pot, const std::vector<float> &rho) {
         // allocate space for messages, in four directions (up, down, left and right)
         const uint nodes = width * height;
         std::vector<message<labels>> u(nodes), d(nodes), l(nodes), r(nodes);
 
         indexer idx(width, height);
+        edge_indexer edx(width, height);
+
+        // convience functions
+        const auto left = move::LEFT, right = move::RIGHT, up = move::UP, down = move::DOWN;
+        const auto get = [&rho, &edx](const move m, const uint x, const uint y) {
+            return rho[edx(x, y, m)];
+        };
 
         for (uint i = 0; i < max_iter; ++i) {
             std::cout << "iter: " << i << std::endl;
             // checkerboard update scheme
             for (uint y = 1; y < height - 1; ++y) {
                 for (uint x = ((y + i) % 2) + 1; x < width - 1; x += 2) {
+
                     // send messages in each direction
-                    send_msg(idx(u, x, y+1), idx(l, x+1, y), idx(r, x-1, y), idx(pot, x, y), idx(u, x, y));
-                    send_msg(idx(d, x, y-1), idx(l, x+1, y), idx(r, x-1, y), idx(pot, x, y), idx(d, x, y));
-                    send_msg(idx(u, x, y+1), idx(d, x, y-1), idx(r, x-1, y), idx(pot, x, y), idx(r, x, y));
-                    send_msg(idx(u, x, y+1), idx(d, x, y-1), idx(l, x+1, y), idx(pot, x, y), idx(l, x, y));
+                    //        m1                   m2                   m3                   opp                     out             pot
+                    send_msg(idx(u,  x, y+1),    idx(l   , x+1, y),  idx(r,     x-1, y),  idx(d,    x, y-1),  idx(u,  x, y),   idx(pot, x, y),
+                             get(up, x, y+1),    get(left, x+1, y),  get(right, x-1, y),  get(down, x, y-1));
+
+                    send_msg(idx(d,    x, y-1),  idx(l   , x+1, y),  idx(r,     x-1, y),  idx(u,  x, y+1),    idx(d, x, y),    idx(pot, x, y),
+                             get(down, x, y-1),  get(left, x+1, y),  get(right, x-1, y),  get(up, x, y+1));
+
+                    send_msg(idx(u,  x, y+1),    idx(d,    x, y-1),  idx(r,     x-1, y),  idx(l,    x+1, y),  idx(r, x, y),    idx(pot, x, y),
+                             get(up, x, y+1),    get(down, x, y-1),  get(right, x-1, y),  get(left, x+1, y));
+
+                    send_msg(idx(u,  x, y+1),    idx(d,    x, y-1),  idx(l,    x+1, y),   idx(r,     x-1, y), idx(l, x, y),    idx(pot, x, y),
+                             get(up, x, y+1),    get(down, x, y-1),  get(left, x+1, y),   get(right, x-1, y));
                 }
             }
         }
@@ -88,7 +101,11 @@ namespace {
                 float min_value = std::numeric_limits<float>::max();
 
                 for (uint i = 0; i < labels; ++i) {
-                    const float val = u[idx(x, y+1)].values[i] + d[idx(x, y-1)].values[i] + l[idx(x+1, y)].values[i] + r[idx(x-1, y)].values[i] + pot[idx(x, y)].values[i];
+                    const float val = pow(u[idx(x, y+1)].values[i], get(up,    x, y+1))
+                                    + pow(d[idx(x, y-1)].values[i], get(down,  x, y-1))
+                                    + pow(l[idx(x+1, y)].values[i], get(left,  x+1, y))
+                                    + pow(r[idx(x-1, y)].values[i], get(right, x-1, y))
+                                    + pot[idx(x, y)].values[i];
 
                     if (val < min_value) {
                         min_label = i;
@@ -108,6 +125,7 @@ namespace {
 int main(int argc, char *argv[]) {
     // constants initalisation
     const uint labels = 16;
+    const uint mst_samples = 20;
 
     if (argc != 3) {
         std::cout << "usage ./stero [left.png] [right.png]" << std::endl;
@@ -153,7 +171,14 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    std::vector<uchar> result = decode<labels>(5, width, height, unary_psi);
+    // sample the grid
+    std::vector<uint> edge_samples = sample_edge_apparence(width, height, mst_samples);
+
+    std::vector<float> rho;
+    std::transform(edge_samples.begin(), edge_samples.end(), std::back_inserter(rho), [](const uchar count){ return static_cast<float>(count) / mst_samples; });
+
+    std::cout << "finished running " << mst_samples << " samples" << std::endl;
+    std::vector<uchar> result = decode<labels>(5, width, height, unary_psi, rho);
 
     // convert the results into an image
     std::vector<uchar> image(result.size() * 4);
