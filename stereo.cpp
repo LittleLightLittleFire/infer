@@ -36,17 +36,25 @@ namespace {
             out.values[i] = m1.values[i] *  rm1 + m2.values[i] * rm2 + m3.values[i] * rm3 + opp.values[i] * (ropp - 1) + pot.values[i];
         }
 
-        // find the edgewise with the minimal potential
-        for (uint i = 0; i < labels; ++i) {
-            float min_value = std::numeric_limits<float>::max();
-            for (uint j = 0; j < labels; ++j) {
-                const float value = out.values[i] + edgewise(i, j) * (1 / ropp);
-                if (value < min_value) {
-                    min_value = value;
-                }
+        { // truncate
+            // normally we would be forced to multiply this into the pairwise term which is has the size: labels^2, that would be painful
+            // but since the pairwise term in a special form - min(y_i - y_j, d) (truncated linear model), we could get the result in linear time
+            // algorithm from Pedro F. Felzenszwalb and Daniel P. Huttenlocher (2006): Efficient Belief Propagation for Early Vision
+
+            // compute the minimum to truncate with
+            const float trunc = data_ceiling + *std::min_element(out.values, out.values + labels);
+
+            // first pass, equivalent to a haskell `scanl (min . succ)`
+            for (uint i = 1; i < labels; ++i) {
+                out.values[i] = std::min(out.values[i - 1] + (1 / ropp), out.values[i]);
             }
 
-            out.values[i] = min_value;
+            // second pass, same thing but with the list reversed
+            for (int i = labels - 2; i >= 0; --i) {
+                out.values[i] = std::min(out.values[i + 1] + (1 / ropp), out.values[i]);
+            }
+
+            std::transform(out.values, out.values + labels, out.values, [trunc](const float x){ return std::min(x, trunc); });
         }
 
         // normalise
@@ -125,7 +133,7 @@ namespace {
 int main(int argc, char *argv[]) {
     // constants initalisation
     const uint labels = 16;
-    const uint mst_samples = 20;
+    const uint mst_samples = 100;
 
     if (argc != 3) {
         std::cout << "usage ./stero [left.png] [right.png]" << std::endl;
@@ -178,7 +186,7 @@ int main(int argc, char *argv[]) {
     std::transform(edge_samples.begin(), edge_samples.end(), std::back_inserter(rho), [](const uchar count){ return static_cast<float>(count) / mst_samples; });
 
     std::cout << "finished running " << mst_samples << " samples" << std::endl;
-    std::vector<uchar> result = decode<labels>(5, width, height, unary_psi, rho);
+    std::vector<uchar> result = decode<labels>(200, width, height, unary_psi, rho);
 
     // convert the results into an image
     std::vector<uchar> image(result.size() * 4);
