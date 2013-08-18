@@ -24,10 +24,6 @@ namespace {
         explicit message() : values() { } // default initalisation to 0
     };
 
-    float edgewise(const float x, const float y) {
-        return std::min(std::abs(x - y), data_ceiling);
-    }
-
     /** Compute a new message from inputs */
     template <uint labels>
     void inline send_msg(const message<labels> &m1, const message<labels> &m2, const message<labels> &m3, const message<labels> &opp, message<labels> &out, const message<labels> &pot, const float rm1, const float rm2, const float rm3, const float ropp) {
@@ -135,8 +131,8 @@ int main(int argc, char *argv[]) {
     const uint labels = 16;
     const uint mst_samples = 100;
 
-    if (argc != 3) {
-        std::cout << "usage ./stero [left.png] [right.png]" << std::endl;
+    if (argc != 4) {
+        std::cout << "usage ./stero [left.png] [right.png] [output.png]" << std::endl;
         return 1;
     }
 
@@ -196,7 +192,7 @@ int main(int argc, char *argv[]) {
         image[i * 4 + 3] = 255; // alpha channel
     }
 
-    if (lodepng::encode("output.png", image, width, height)) {
+    if (lodepng::encode(argv[3], image, width, height)) {
         std::cout << "error writing image" << std::endl;
         return 2;
     }
