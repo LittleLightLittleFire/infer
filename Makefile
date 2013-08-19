@@ -1,7 +1,7 @@
 CC = clang++
 CFLAGS = -g -O2 -Wall -std=c++11
 LDFLAGS =
-SRCS = stereo.cpp lodepng.cpp mst.cpp
+SRCS = stereo.cpp lodepng.cpp mst.cpp bp.cpp
 TARGETS = stereo
 
 OBJS = $(SRCS:.cpp=.o)
@@ -17,7 +17,7 @@ $(TARGETS): $(OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -c $< -o $@
 
 test: stereo
-	./stereo 16 data/tsukuba/imL.png data/tsukuba/imR.png out/output.png
+	./stereo 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
 
 pairs: stereo
 	./stereo 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
