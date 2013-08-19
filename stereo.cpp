@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 #include <limits>
+#include <cstdlib>
 
 #include "util.h"
 #include "mst.h"
@@ -13,23 +14,15 @@ namespace {
     typedef unsigned int uint;
     typedef unsigned char uchar;
 
-    const float linear_scaling = 0.07;
+    const float linear_scaling = 0.075;
     const float data_trunc = 15.0;
-    const float data_ceiling = 1.7;
-
-    /** A vector of floats */
-    template <uint labels>
-    struct message {
-        float values[labels];
-        explicit message() : values() { } // default initalisation to 0
-    };
+    const float data_disc = 1.7;
 
     /** Compute a new message from inputs */
-    template <uint labels>
-    void inline send_msg(const message<labels> &m1, const message<labels> &m2, const message<labels> &m3, const message<labels> &opp, message<labels> &out, const message<labels> &pot, const float rm1, const float rm2, const float rm3, const float ropp) {
+    void inline send_msg(const float *const m1, const float *const m2, const float *const m3, const float *const opp, float *const out, const float *const pot, const float rm1, const float rm2, const float rm3, const float ropp, const uint labels) {
         // compute the new message partially, deal with the pairwise term later
         for (uint i = 0; i < labels; ++i) {
-            out.values[i] = m1.values[i] *  rm1 + m2.values[i] * rm2 + m3.values[i] * rm3 + opp.values[i] * (ropp - 1) + pot.values[i];
+            out[i] = m1[i] *  rm1 + m2[i] * rm2 + m3[i] * rm3 + opp[i] * (ropp - 1) + pot[i];
         }
 
         { // truncate
@@ -38,41 +31,41 @@ namespace {
             // algorithm from Pedro F. Felzenszwalb and Daniel P. Huttenlocher (2006): Efficient Belief Propagation for Early Vision
 
             // compute the minimum to truncate with
-            const float trunc = data_ceiling + *std::min_element(out.values, out.values + labels);
+            const float trunc = data_disc + *std::min_element(out, out + labels);
 
-            // first pass, equivalent to a haskell `scanl (min . succ)`
+            // first pass, equivalent to a haskell `scanl (min . succ . (+ c))`
             for (uint i = 1; i < labels; ++i) {
-                out.values[i] = std::min(out.values[i - 1] + (1 / ropp), out.values[i]);
+                out[i] = std::min(out[i - 1] + (1 / ropp), out[i]);
             }
 
             // second pass, same thing but with the list reversed
             for (int i = labels - 2; i >= 0; --i) {
-                out.values[i] = std::min(out.values[i + 1] + (1 / ropp), out.values[i]);
+                out[i] = std::min(out[i + 1] + (1 / ropp), out[i]);
             }
 
-            std::transform(out.values, out.values + labels, out.values, [trunc](const float x){ return std::min(x, trunc); });
+            std::transform(out, out + labels, out, [trunc](const float x){ return std::min(x, trunc); });
         }
 
         // normalise
-        const float sum = std::accumulate(out.values, out.values + labels, 0.0f) / labels;
-        std::transform(out.values, out.values + labels, out.values, [sum](const float x){ return x - sum; });
+        const float sum = std::accumulate(out, out + labels, 0.0f) / labels;
+        std::transform(out, out + labels, out, [sum](const float x){ return x - sum; });
     }
 
-    template <uint labels>
-    std::vector<uchar> decode(const uint max_iter, const uint width, const uint height, const std::vector<message<labels>> &pot, const std::vector<float> &rho) {
+    std::vector<uchar> decode(const uint labels, const uint max_iter, const uint width, const uint height, const std::vector<float> &pot, const std::vector<float> &rho) {
         // allocate space for messages, in four directions (up, down, left and right)
         const uint nodes = width * height;
-        std::vector<message<labels>> u(nodes), d(nodes), l(nodes), r(nodes);
+        const uint elements = labels * nodes;
 
-        indexer idx(width, height);
-        edge_indexer edx(width, height);
+        const edge_indexer edx(width, height);
+        const indexer ndx(width, height, labels);
 
-        // convience functions
+        // convenience functions
         const auto left = move::LEFT, right = move::RIGHT, up = move::UP, down = move::DOWN;
         const auto get = [&rho, &edx](const move m, const uint x, const uint y) {
             return rho[edx(x, y, m)];
         };
 
+        std::vector<float> u(elements), d(elements), l(elements), r(elements);
         for (uint i = 0; i < max_iter; ++i) {
             std::cout << "iter: " << i << std::endl;
             // checkerboard update scheme
@@ -81,35 +74,36 @@ namespace {
 
                     // send messages in each direction
                     //        m1                   m2                   m3                   opp                     out             pot
-                    send_msg(idx(u,  x, y+1),    idx(l   , x+1, y),  idx(r,     x-1, y),  idx(d,    x, y-1),    idx(u, x, y),    idx(pot, x, y),
-                             get(up, x, y+1),    get(left, x+1, y),  get(right, x-1, y),  get(down, x, y-1));
+                    send_msg(ndx(u,  x, y+1),    ndx(l   , x+1, y),  ndx(r,     x-1, y),  ndx(d,    x, y-1),    ndx(u, x, y),    ndx(pot, x, y),
+                             get(up, x, y+1),    get(left, x+1, y),  get(right, x-1, y),  get(down, x, y-1), labels);
 
-                    send_msg(idx(d,    x, y-1),  idx(l   , x+1, y),  idx(r,     x-1, y),  idx(u,  x, y+1),      idx(d, x, y),    idx(pot, x, y),
-                             get(down, x, y-1),  get(left, x+1, y),  get(right, x-1, y),  get(up, x, y+1));
+                    send_msg(ndx(d,    x, y-1),  ndx(l   , x+1, y),  ndx(r,     x-1, y),  ndx(u,  x, y+1),      ndx(d, x, y),    ndx(pot, x, y),
+                             get(down, x, y-1),  get(left, x+1, y),  get(right, x-1, y),  get(up, x, y+1), labels);
 
-                    send_msg(idx(u,  x, y+1),    idx(d,    x, y-1),  idx(r,     x-1, y),  idx(l,    x+1, y),    idx(r, x, y),    idx(pot, x, y),
-                             get(up, x, y+1),    get(down, x, y-1),  get(right, x-1, y),  get(left, x+1, y));
+                    send_msg(ndx(u,  x, y+1),    ndx(d,    x, y-1),  ndx(r,     x-1, y),  ndx(l,    x+1, y),    ndx(r, x, y),    ndx(pot, x, y),
+                             get(up, x, y+1),    get(down, x, y-1),  get(right, x-1, y),  get(left, x+1, y), labels);
 
-                    send_msg(idx(u,  x, y+1),    idx(d,    x, y-1),  idx(l,    x+1, y),   idx(r,     x-1, y),   idx(l, x, y),    idx(pot, x, y),
-                             get(up, x, y+1),    get(down, x, y-1),  get(left, x+1, y),   get(right, x-1, y));
+                    send_msg(ndx(u,  x, y+1),    ndx(d,    x, y-1),  ndx(l,    x+1, y),   ndx(r,     x-1, y),   ndx(l, x, y),    ndx(pot, x, y),
+                             get(up, x, y+1),    get(down, x, y-1),  get(left, x+1, y),   get(right, x-1, y), labels);
                 }
             }
         }
 
-        // for each pixel: find the most likely label
         std::vector<uchar> result(nodes);
+        const indexer idx(width, height);
+
+        // for each pixel: find the most likely label
         for (uint y = 1; y < height - 1; ++y) {
             for (uint x = 1; x < width - 1; ++x) {
-                const uint index = idx(x, y);
                 uint min_label = 0;
                 float min_value = std::numeric_limits<float>::max();
 
                 for (uint i = 0; i < labels; ++i) {
-                    const float val = u[idx(x, y+1)].values[i] * get(up,    x, y+1)
-                                    + d[idx(x, y-1)].values[i] * get(down,  x, y-1)
-                                    + l[idx(x+1, y)].values[i] * get(left,  x+1, y)
-                                    + r[idx(x-1, y)].values[i] * get(right, x-1, y)
-                                    + pot[idx(x, y)].values[i];
+                    const float val = u[ndx(x, y+1) + i] * get(up,    x, y+1)
+                                    + d[ndx(x, y-1) + i] * get(down,  x, y-1)
+                                    + l[ndx(x+1, y) + i] * get(left,  x+1, y)
+                                    + r[ndx(x-1, y) + i] * get(right, x-1, y)
+                                    + pot[ndx(x, y) + i];
 
                     if (val < min_value) {
                         min_label = i;
@@ -117,7 +111,7 @@ namespace {
                     }
                 }
 
-                result[index] = min_label;
+                result[idx(x, y)] = min_label;
             }
         }
 
@@ -127,14 +121,18 @@ namespace {
 }
 
 int main(int argc, char *argv[]) {
-    // constants initalisation
-    const uint labels = 16;
-    const uint mst_samples = 100;
-
-    if (argc != 4) {
-        std::cout << "usage ./stero [left.png] [right.png] [output.png]" << std::endl;
+    if (argc != 5) {
+        std::cout << "usage ./stero [labels] [left.png] [right.png] [output.png]" << std::endl;
         return 1;
     }
+
+    // constants initalisation
+    const uint mst_samples = 50;
+
+    const uint labels = atoi(argv[1]);
+    const char *left_name = argv[2];
+    const char *right_name = argv[3];
+    const char *output_name = argv[4];
 
     std::vector<uchar> left, right;
     uint width, height;
@@ -142,7 +140,7 @@ int main(int argc, char *argv[]) {
     { // image loading
         std::vector<uchar> left_rgba, right_rgba;
 
-        if (lodepng::decode(left_rgba, width, height, argv[1]) || lodepng::decode(right_rgba, width, height, argv[2])) {
+        if (lodepng::decode(left_rgba, width, height, left_name) || lodepng::decode(right_rgba, width, height, right_name)) {
             std::cout << "error loading images" << std::endl;
             return 1;
         }
@@ -156,20 +154,22 @@ int main(int argc, char *argv[]) {
 
     // underlying model is of a grid
     const uint nodes = width * height;
-    indexer idx(width, height);
+
+    const indexer idx(width, height);
+    const indexer ndx(width, height, labels);
 
     // compute the unary potential functions for each random variable (y_1 ... y_n)
     // using the sum of absolute differences
 
     // a 2d array of [index, label] represented as a flat array
-    std::vector<message<labels>> unary_psi(nodes);
+    std::vector<float> unary_psi(nodes * labels);
 
     { // create the potentials using a window size of 1
         for (uint y = 0; y < height; ++y) {
             for (uint x = labels - 1; x < width; ++x) { // offset the index so we don't go out of bounds
                 const uint index = idx(x, y);
                 for (uint p = 0; p < labels; ++p) {
-                    unary_psi[index].values[p] = linear_scaling * std::min<float>(abs(static_cast<int>(left[index]) - right[index - p]), data_trunc);
+                    unary_psi[ndx(x, y) + p] = linear_scaling * std::min<float>(abs(static_cast<int>(left[index]) - right[index - p]), data_trunc);
                 }
             }
         }
@@ -182,7 +182,7 @@ int main(int argc, char *argv[]) {
     std::transform(edge_samples.begin(), edge_samples.end(), std::back_inserter(rho), [](const uchar count){ return static_cast<float>(count) / mst_samples; });
 
     std::cout << "finished running " << mst_samples << " samples" << std::endl;
-    std::vector<uchar> result = decode<labels>(200, width, height, unary_psi, rho);
+    std::vector<uchar> result = decode(labels, 200, width, height, unary_psi, rho);
 
     // convert the results into an image
     std::vector<uchar> image(result.size() * 4);
@@ -192,7 +192,7 @@ int main(int argc, char *argv[]) {
         image[i * 4 + 3] = 255; // alpha channel
     }
 
-    if (lodepng::encode(argv[3], image, width, height)) {
+    if (lodepng::encode(output_name, image, width, height)) {
         std::cout << "error writing image" << std::endl;
         return 2;
     }

@@ -17,14 +17,15 @@ $(TARGETS): $(OBJS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -c $< -o $@
 
 test: stereo
-	./stereo data/tsukuba/imL.png data/tsukuba/imR.png output.png
+	./stereo 16 data/tsukuba/imL.png data/tsukuba/imR.png out/output.png
 
 pairs: stereo
-	./stereo data/tsukuba/imL.png data/tsukuba/imR.png tsukuba.png
-	./stereo data/cones/imL.png data/cones/imR.png cones.png
-	./stereo data/teddy/imL.png data/teddy/imR.png teddy.png
-	./stereo data/venus/imL.png data/venus/imR.png teddy.png
+	./stereo 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
+	./stereo 20 data/venus/imL.png data/venus/imR.png out/venus.png
+	./stereo 60 data/cones/imL.png data/cones/imR.png out/cones.png
+	./stereo 60 data/teddy/imL.png data/teddy/imR.png out/teddy.png
 
 clean:
-	rm *.o
-	rm $(TARGETS)
+	-rm *.o
+	-rm $(TARGETS)
+	-rm out/*
