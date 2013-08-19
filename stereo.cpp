@@ -17,9 +17,12 @@ namespace {
     typedef unsigned int uint;
     typedef unsigned char uchar;
 
+    // constants initalisation
+    const uint mst_samples = 50;
+
     const float linear_scaling = 0.075;
-    const float data_trunc = 15.0;
     const float data_disc = 1.7;
+    const float data_trunc = 15;
 }
 
 int main(int argc, char *argv[]) {
@@ -27,9 +30,6 @@ int main(int argc, char *argv[]) {
         std::cout << "usage ./stero [labels] [left.png] [right.png] [output.png]" << std::endl;
         return 1;
     }
-
-    // constants initalisation
-    const uint mst_samples = 50;
 
     const uint labels = atoi(argv[1]);
     const char *left_name = argv[2];
@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
     std::transform(edge_samples.begin(), edge_samples.end(), std::back_inserter(rho), [](const uchar count){ return static_cast<float>(count) / mst_samples; });
 
     std::cout << "finished running " << mst_samples << " samples" << std::endl;
-    std::vector<uchar> result = decode_trbp_async(labels, 200, width, height, unary_psi, rho, std::bind(send_msg_lin_trunc, std::placeholders::_1, data_disc));
+    std::vector<uchar> result = decode_trbp(labels, 200, width, height, unary_psi, rho, std::bind(send_msg_lin_trunc, std::placeholders::_1, data_disc));
 
     // convert the results into an image
     std::vector<uchar> image(result.size() * 4);
