@@ -26,15 +26,16 @@ namespace {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 5) {
-        std::cout << "usage ./stero [labels] [left.png] [right.png] [output.png]" << std::endl;
+    if (argc != 6) {
+        std::cout << "usage ./stero [labels] [scale] [left.png] [right.png] [output.png]" << std::endl;
         return 1;
     }
 
     const uint labels = atoi(argv[1]);
-    const char *left_name = argv[2];
-    const char *right_name = argv[3];
-    const char *output_name = argv[4];
+    const uint scale = atoi(argv[2]);
+    const char *left_name = argv[3];
+    const char *right_name = argv[4];
+    const char *output_name = argv[5];
 
     std::vector<uchar> left, right;
     uint width, height;
@@ -84,12 +85,12 @@ int main(int argc, char *argv[]) {
     std::transform(edge_samples.begin(), edge_samples.end(), std::back_inserter(rho), [](const uchar count){ return static_cast<float>(count) / mst_samples; });
 
     std::cout << "finished running " << mst_samples << " samples" << std::endl;
-    std::vector<uchar> result = decode_trbp(labels, 200, width, height, unary_psi, rho, std::bind(send_msg_lin_trunc, std::placeholders::_1, data_disc));
+    std::vector<uchar> result = decode_trbp(labels, 200, width, height, unary_psi, rho, std::bind(send_msg_lin_trunc, std::placeholders::_1, data_disc), true);
 
     // convert the results into an image
     std::vector<uchar> image(result.size() * 4);
     for (uint i = 0; i < result.size(); ++i) {
-        const float val = result[i] * (256.0f / labels);
+        const float val = result[i] * scale;
         image[i * 4] = image[i * 4 + 1] = image[i * 4 + 2] = val;
         image[i * 4 + 3] = 255; // alpha channel
     }

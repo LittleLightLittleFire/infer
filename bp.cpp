@@ -40,7 +40,7 @@ void send_msg_lin_trunc(const message_data in, const float data_disc) {
     std::transform(in.out, in.out + in.labels, in.out, [sum](const float x){ return x - sum; });
 }
 
-std::vector<uchar> decode_trbp(const uint labels, const uint max_iter, const uint width, const uint height, const std::vector<float> &pot, const std::vector<float> &rho, const std::function<void(message_data)> send_msg) {
+std::vector<uchar> decode_trbp(const uint labels, const uint max_iter, const uint width, const uint height, const std::vector<float> &pot, const std::vector<float> &rho, const std::function<void(message_data)> send_msg, const bool sync) {
     // allocate space for messages, in four directions (up, down, left and right)
     const uint nodes = width * height;
     const uint elements = labels * nodes;
@@ -56,22 +56,56 @@ std::vector<uchar> decode_trbp(const uint labels, const uint max_iter, const uin
 
     std::vector<float> u(elements), d(elements), l(elements), r(elements);
     for (uint i = 0; i < max_iter; ++i) {
-        // checkerboard update scheme
-        for (uint y = 1; y < height - 1; ++y) {
-            for (uint x = ((y + i) % 2) + 1; x < width - 1; x += 2) {
-                // send messages in each direction
-                //        m1                   m2                   m3                   opp                     pot             out
-                send_msg({ ndx(u,  x, y+1),    ndx(l   , x+1, y),  ndx(r,     x-1, y),  ndx(d,    x, y-1),    ndx(pot, x, y),    ndx(u, x, y),
-                         get(up, x, y+1),    get(left, x+1, y),  get(right, x-1, y),  get(down, x, y-1), labels });
+        if (sync) {
+            // checkerboard update scheme
+            for (uint y = 1; y < height - 1; ++y) {
+                for (uint x = ((y + i) % 2) + 1; x < width - 1; x += 2) {
+                    // send messages in each direction
+                    //        m1                   m2                   m3                   opp                     pot             out
+                    send_msg({ ndx(u,  x, y+1),    ndx(l   , x+1, y),  ndx(r,     x-1, y),  ndx(d,    x, y-1),    ndx(pot, x, y),    ndx(u, x, y),
+                             get(up, x, y+1),    get(left, x+1, y),  get(right, x-1, y),  get(down, x, y-1), labels });
 
-                send_msg({ ndx(d,    x, y-1),  ndx(l   , x+1, y),  ndx(r,     x-1, y),  ndx(u,  x, y+1),      ndx(pot, x, y),    ndx(d, x, y),
-                         get(down, x, y-1),  get(left, x+1, y),  get(right, x-1, y),  get(up, x, y+1), labels });
+                    send_msg({ ndx(d,    x, y-1),  ndx(l   , x+1, y),  ndx(r,     x-1, y),  ndx(u,  x, y+1),      ndx(pot, x, y),    ndx(d, x, y),
+                             get(down, x, y-1),  get(left, x+1, y),  get(right, x-1, y),  get(up, x, y+1), labels });
 
-                send_msg({ ndx(u,  x, y+1),    ndx(d,    x, y-1),  ndx(r,     x-1, y),  ndx(l,    x+1, y),    ndx(pot, x, y),    ndx(r, x, y),
-                         get(up, x, y+1),    get(down, x, y-1),  get(right, x-1, y),  get(left, x+1, y), labels });
+                    send_msg({ ndx(u,  x, y+1),    ndx(d,    x, y-1),  ndx(r,     x-1, y),  ndx(l,    x+1, y),    ndx(pot, x, y),    ndx(r, x, y),
+                             get(up, x, y+1),    get(down, x, y-1),  get(right, x-1, y),  get(left, x+1, y), labels });
 
-                send_msg({ ndx(u,  x, y+1),    ndx(d,    x, y-1),  ndx(l,    x+1, y),   ndx(r,     x-1, y),   ndx(pot, x, y),    ndx(l, x, y),
-                         get(up, x, y+1),    get(down, x, y-1),  get(left, x+1, y),   get(right, x-1, y), labels });
+                    send_msg({ ndx(u,  x, y+1),    ndx(d,    x, y-1),  ndx(l,    x+1, y),   ndx(r,     x-1, y),   ndx(pot, x, y),    ndx(l, x, y),
+                             get(up, x, y+1),    get(down, x, y-1),  get(left, x+1, y),   get(right, x-1, y), labels });
+                }
+            }
+        } else  {
+            // right messages
+            for (uint x = 1; x < width - 1; ++x) {
+                for (uint y = 1; y < height - 1; ++y) {
+                    send_msg({ ndx(u,  x, y+1),    ndx(d,    x, y-1),  ndx(r,     x-1, y),  ndx(l,    x+1, y),    ndx(pot, x, y),    ndx(r, x, y),
+                                 get(up, x, y+1),    get(down, x, y-1),  get(right, x-1, y),  get(left, x+1, y), labels });
+                    }
+            }
+
+            // down messages
+            for (uint x = 1; x < width - 1; ++x) {
+                for (uint y = 1; y < height - 1; ++y) {
+                    send_msg({ ndx(d,    x, y-1),  ndx(l   , x+1, y),  ndx(r,     x-1, y),  ndx(u,  x, y+1),      ndx(pot, x, y),    ndx(d, x, y),
+                             get(down, x, y-1),  get(left, x+1, y),  get(right, x-1, y),  get(up, x, y+1), labels });
+                    }
+            }
+
+            // left messages
+            for (uint x = 1; x < width - 1; ++x) {
+                for (uint y = 1; y < height - 1; ++y) {
+                    send_msg({ ndx(u,  x, y+1),    ndx(d,    x, y-1),  ndx(l,    x+1, y),   ndx(r,     x-1, y),   ndx(pot, x, y),    ndx(l, x, y),
+                             get(up, x, y+1),    get(down, x, y-1),  get(left, x+1, y),   get(right, x-1, y), labels });
+                }
+            }
+
+            // up messages
+            for (uint x = 1; x < width - 1; ++x) {
+                for (uint y = 1; y < height - 1; ++y) {
+                    send_msg({ ndx(u,  x, y+1),    ndx(l   , x+1, y),  ndx(r,     x-1, y),  ndx(d,    x, y-1),    ndx(pot, x, y),    ndx(u, x, y),
+                             get(up, x, y+1),    get(left, x+1, y),  get(right, x-1, y),  get(down, x, y-1), labels });
+                }
             }
         }
     }
