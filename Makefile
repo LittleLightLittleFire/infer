@@ -3,7 +3,7 @@ OPT = -O2
 # CPU stuff
 CC = g++-4.7
 CFLAGS = -g $(OPT) -Wall -std=c++11
-SRCS = lodepng.cpp
+SRCS = lodepng.cpp stereo.cpp
 
 # GPU stuff
 CUDA_PATH     ?= /usr/local/cuda
@@ -12,8 +12,8 @@ CUDA_LIB_PATH ?= $(CUDA_PATH)/lib$(shell getconf LONG_BIT)
 CUDA_INC_PATH ?= $(CUDA_PATH)/include
 
 CUDA = $(CUDA_BIN_PATH)/nvcc
-CUDA_FLAGS = $(OPT) -Wall -arch=sm_35
-CUDA_SRCS = hbp.cu stereo.cu
+CUDA_FLAGS = $(OPT) -arch=sm_35
+CUDA_SRCS = hbp.cu
 
 # Linker settings
 LDFLAGS = -I$(CUDA_INC_PATH) -L$(CUDA_LIB_PATH) -lcudart
