@@ -12,7 +12,7 @@ CUDA_LIB_PATH ?= $(CUDA_PATH)/lib$(shell getconf LONG_BIT)
 CUDA_INC_PATH ?= $(CUDA_PATH)/include
 
 CUDA = $(CUDA_BIN_PATH)/nvcc
-CUDA_FLAGS = $(OPT) -g -arch=sm_35
+CUDA_FLAGS = $(OPT) -g -G -arch=sm_35
 CUDA_SRCS = hbp.cu
 
 # Linker settings

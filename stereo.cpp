@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    std::vector<uchar> result = decode_hbp(labels, 1, 5, width, height, unary_psi, data_disc);
+    std::vector<uchar> result = decode_hbp(labels, 5, 5, width, height, unary_psi, data_disc);
 
     // convert the results into an image
     std::vector<uchar> image(result.size() * 4);

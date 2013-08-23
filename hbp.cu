@@ -10,6 +10,14 @@ namespace {
     typedef unsigned char uchar;
     typedef unsigned uint;
 
+    __device__ float *ndx(const uint labels, const uint width, float *dir, const uint x, const uint y) {
+        return labels * (x + y * width) + dir;
+    }
+
+    __device__ const float *cndx(const uint labels, const uint width, const float *dir, const uint x, const uint y) {
+        return labels * (x + y * width) + dir;
+    }
+
     /** generate the next layer's potentials */
     __global__ void fill_next_layer_pot(const uint labels, const uint width, const uint height, const uint max_width, const uint max_height, const float *pot, float *out) {
         const uint x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -21,21 +29,32 @@ namespace {
         }
 
         // collapse the potential in a 2x2 area
+        float *target = ndx(labels, width, out, x, y);
+        const float *top_left = cndx(labels, max_width, pot, 2 * x, 2 * y);;
+
         for (uint i = 0; i < labels; ++i) {
-            uint result = pot[2 * x + 2 * y * max_width + i];
-            if (2 * x + 1 < max_width) {
-                result += pot[2 * x + 2 * y * max_width + 1 + i];
-            }
+            target[i] = top_left[i];
+        }
 
-            if (2 * y + 1 < max_height) {
-                result += pot[2 * x + 2 * (y + 1) * max_width + i];
+        if (2 * x + 1 < max_width) {
+            const float *top_right = cndx(labels, max_width, pot, 2 * x + 1, 2 * y);;
+            for (uint i = 0; i < labels; ++i) {
+                target[i] += top_right[i];
             }
+        }
 
-            if (2 * x + 1 < max_width && 2 * y + 1 < max_height) {
-                result += pot[2 * x + 2 * (y + 1) * max_width + 1 + i];
+        if (2 * (y + 1) < max_height) {
+            const float *bottom_left = cndx(labels, max_width, pot, 2 * x, 2 * (y + 1));
+            for (uint i = 0; i < labels; ++i) {
+                target[i] += bottom_left[i];
             }
+        }
 
-            out[x + width * y + i] = result;
+        if (2 * x + 1 < max_width && 2 * (y + 1) < max_height) {
+            const float *bottom_right = cndx(labels, max_width, pot, 2 * x + 1, 2 * (y + 1));
+            for (uint i = 0; i < labels; ++i) {
+                target[i] += bottom_right[i];
+            }
         }
     }
 
@@ -75,14 +94,6 @@ namespace {
         }
     }
 
-    __device__ float *ndx(const uint labels, const uint width, float *dir, const uint x, const uint y) {
-        return labels * (x + y * width) + dir;
-    }
-
-    __device__ const float *cndx(const uint labels, const uint width, const float *dir, const uint x, const uint y) {
-        return labels * (x + y * width) + dir;
-    }
-
     /** loopy belief propagation */
     __global__ void bp(const uint lbl, const uint w, const uint h, const float disc_trunc, const uint i, const float *pot, float *u, float *d, float *l, float *r) {
         const uint x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -103,7 +114,7 @@ namespace {
     }
 
     /** initalise messages using the messages from the layer below */
-    __global__ void prime(const uint lbl, const uint w, const uint h, const uint prev_w, const float *prev_msg, float *msg) {
+    __global__ void prime(const uint lbl, const uint w, const uint h, const uint prev_w, const float *prev_msg, float *out) {
         const uint x = blockIdx.x * blockDim.x + threadIdx.x;
         const uint y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -112,19 +123,12 @@ namespace {
             return;
         }
 
-        float *message = ndx(lbl, w, msg, x, y);
+        // initaise to the last layer's (x/2, y/2)
+        float *target = ndx(lbl, w, out, x, y);
+        const float *source = cndx(lbl, prev_w, prev_msg, x / 2, y / 2);
 
-        if (x == 0 || x == w - 1 || y == 0 || y == w - 1) {
-            // initalise boundaries as 0
-            for (uint i = 0; i < lbl; ++i) {
-                message[i] = 0;
-            }
-        } else {
-            // initalise to prev_msg[x/2, y/2]
-            const float *target = cndx(lbl, prev_w, prev_msg, x / 2, y / 2);
-            for (uint i = 0; i < lbl; ++i) {
-                message[i] = target[i];
-            }
+        for (uint i = 0; i < lbl; ++i) {
+            target[i] = source[i];
         }
     }
 
@@ -238,8 +242,8 @@ std::vector<uchar> decode_hbp(const uchar labels, const uint layers, const uint 
         prime<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, layer_sizes[i+1].x, dev_pr, dev_r);
 
         // run the bp for this layer
-        for (uint i = 0; i < max_iter; ++i) {
-            bp<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, disc_trunc, i, dev_pot[i], dev_u, dev_d, dev_l, dev_r);
+        for (uint j = 0; j < max_iter; ++j) {
+            bp<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, disc_trunc, j, dev_pot[i], dev_u, dev_d, dev_l, dev_r);
         }
 
         std::swap(dev_u, dev_pu);
