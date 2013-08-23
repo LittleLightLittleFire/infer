@@ -16,9 +16,7 @@ namespace {
     typedef unsigned char uchar;
 
     // constants initalisation
-    const uint mst_samples = 50;
-
-    const float linear_scaling = 0.075;
+    const float linear_scaling = 0.07;
     const float data_disc = 1.7;
     const float data_trunc = 15;
 }
@@ -75,7 +73,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    std::vector<uchar> result = decode_hbp(labels, 5, 5, width, height, unary_psi, data_disc);
+    std::vector<uchar> result = decode_hbp(labels, 1, 5, width, height, unary_psi, data_disc);
 
     // convert the results into an image
     std::vector<uchar> image(result.size() * 4);
