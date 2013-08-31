@@ -6,8 +6,9 @@
 #include <limits>
 #include <cstdlib>
 
+#include "mst.h"
 #include "util.h"
-#include "hbp.h"
+#include "trhbp.h"
 
 #include "lodepng.h"
 
@@ -16,9 +17,13 @@ namespace {
     typedef unsigned char uchar;
 
     // constants initalisation
-    const float linear_scaling = 0.07;
+    const float linear_scaling = 0.075;
     const float data_disc = 1.7;
     const float data_trunc = 15;
+
+    const uint layers = 1;
+    const uint iterations = 200;
+    const uint mst_samples = 100;
 }
 
 int main(int argc, char *argv[]) {
@@ -74,7 +79,20 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    std::vector<uchar> result = decode_hbp(labels, 5, 5, width, height, unary_psi, data_disc);
+    std::vector<std::vector<float>> rho;
+    { // create the edge apparence probabilities
+        uint w = width;
+        uint h = height;
+
+        for (uint i = 0; i < layers; ++i) {
+            rho.push_back(sample_edge_apparence(w, h, mst_samples));
+
+            w = (w + 1) / 2;
+            h = (h + 1) / 2;
+        }
+    }
+
+    std::vector<uchar> result = decode_trhbp(labels, layers, iterations, width, height, unary_psi, rho, data_disc);
 
     // convert the results into an image
     std::vector<uchar> image(result.size() * 4);

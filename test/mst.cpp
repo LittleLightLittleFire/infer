@@ -12,7 +12,7 @@ int main() {
     const uint width = 384, height = 388;
     const edge_indexer edx(width, height);
 
-    std::vector<uint> tree = sample_edge_apparence(width, height, 1);
+    std::vector<float> tree = sample_edge_apparence(width, height, 1);
     std::vector<uchar> image(width * height * 4, 255);
 
     const indexer idx(width * 2, height * 2);
@@ -22,11 +22,11 @@ int main() {
             const uint index = idx(x * 2, y * 2);
             image[index] = 0;
 
-            if (tree[edx(x, y, move::DOWN)]) {
+            if (tree[edx(x, y, move::DOWN)] > 0.5) {
                 image[idx(x * 2, y * 2 + 1)] = 80;
             }
 
-            if (tree[edx(x, y, move::RIGHT)]) {
+            if (tree[edx(x, y, move::RIGHT)] > 0.5) {
                 image[idx(x * 2 + 1, y * 2)] = 80;
             }
         }

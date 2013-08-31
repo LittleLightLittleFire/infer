@@ -6,6 +6,8 @@
 #include <cuda.h>
 #include <math_constants.h>
 
+#include "util.h"
+
 namespace {
     typedef unsigned char uchar;
     typedef unsigned uint;
@@ -16,6 +18,17 @@ namespace {
 
     __device__ const float *cndx(const uint labels, const uint width, const float *dir, const uint x, const uint y) {
         return labels * (x + y * width) + dir;
+    }
+
+    __device__ float edx(const uint width, const move m, const float *rho, const uint x, const uint y) {
+        switch (m) {
+            case UP:    return rho[(x + width * (y - 1)) * 2];
+            case DOWN:  return rho[(x + width * y) * 2];
+            case LEFT:  return rho[((x - 1) + width * y) * 2 + 1];
+            case RIGHT: return rho[(x + width * y) * 2 + 1];
+        }
+
+        return 0; // impossible
     }
 
     /** generate the next layer's potentials */
@@ -59,22 +72,22 @@ namespace {
     }
 
     /** max product send message */
-    __device__ void send_msg_map(const uint labels, const float disc_trunc, const float *m1, const float *m2, const float *m3, const float *pot, float *out) {
+    __device__ void send_msg_map(const uint labels, const float disc_trunc, const float *m1, const float *m2, const float *m3, const float *opp, const float *pot, float *out, const float rm1, const float rm2, const float rm3, const float ropp) {
         float curr_min = CUDART_MAX_NORMAL_F;
 
         // add all the incoming messages together
         for (uint i = 0; i < labels; ++i) {
-            out[i] = m1[i] + m2[i] + m3[i] + pot[i];
+            out[i] = m1[i] * rm1 + m2[i] * rm2 + m3[i] * rm3 + opp[i] * (ropp - 1) + pot[i];
             curr_min = fminf(curr_min, out[i]);
         }
 
         // do the O(n) trick
         for (uint i = 1; i < labels; ++i) {
-            out[i] = fminf(out[i-1] + 1.0, out[i]);
+            out[i] = fminf(out[i-1] + (1 / ropp), out[i]);
         }
 
         for (int i = labels - 2; i >= 0; --i) {
-            out[i] = fminf(out[i+1] + 1.0, out[i]);
+            out[i] = fminf(out[i+1] + (1 / ropp), out[i]);
         }
 
         // truncate
@@ -94,8 +107,8 @@ namespace {
         }
     }
 
-    /** loopy belief propagation */
-    __global__ void bp(const uint lbl, const uint w, const uint h, const float disc_trunc, const uint i, const float *pot, float *u, float *d, float *l, float *r) {
+    /** tree reweighted belief propagation */
+    __global__ void bp(const uint lbl, const uint w, const uint h, const float disc_trunc, const uint i, const float *pot, float *u, float *d, float *l, float *r, float *rho) {
         const uint x = blockIdx.x * blockDim.x + threadIdx.x;
         const uint y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -106,10 +119,18 @@ namespace {
 
         // check if this thread is active for this iteration
         if ((x + y + i) % 2 == 0) {
-            send_msg_map(lbl, disc_trunc, cndx(lbl, w, u, x, y+1), cndx(lbl, w, l , x+1, y), cndx(lbl, w, r, x-1, y), cndx(lbl, w, pot, x, y), ndx(lbl, w, u, x, y));
-            send_msg_map(lbl, disc_trunc, cndx(lbl, w, d, x, y-1), cndx(lbl, w, l , x+1, y), cndx(lbl, w, r, x-1, y), cndx(lbl, w, pot, x, y), ndx(lbl, w, d, x, y));
-            send_msg_map(lbl, disc_trunc, cndx(lbl, w, u, x, y+1), cndx(lbl, w, d, x, y-1),  cndx(lbl, w, r, x-1, y), cndx(lbl, w, pot, x, y), ndx(lbl, w, r, x, y));
-            send_msg_map(lbl, disc_trunc, cndx(lbl, w, u, x, y+1), cndx(lbl, w, d, x, y-1),  cndx(lbl, w, l, x+1, y), cndx(lbl, w, pot, x, y), ndx(lbl, w, l, x, y));
+            //                            m1                         m2                         m3                          opp                          pot                      out
+            send_msg_map(lbl, disc_trunc, cndx(lbl, w, u, x, y+1),   cndx(lbl, w, l, x+1, y),   cndx(lbl, w, r, x-1, y),    cndx(lbl, w, d, x, y-1),     cndx(lbl, w, pot, x, y), ndx(lbl, w, u, x, y),
+                                          edx(w, UP, rho, x, y+1),   edx(w, LEFT, rho, x+1, y), edx(w, RIGHT, rho, x-1, y), edx(w, DOWN, rho, x, y-1));
+
+            send_msg_map(lbl, disc_trunc, cndx(lbl, w, d, x, y-1),   cndx(lbl, w, l, x+1, y),   cndx(lbl, w, r, x-1, y),    cndx(lbl, w, u, x, y+1),     cndx(lbl, w, pot, x, y), ndx(lbl, w, d, x, y),
+                                          edx(w, DOWN, rho, x, y-1), edx(w, LEFT, rho, x+1, y), edx(w, RIGHT, rho, x-1, y), edx(w, UP, rho, x, y+1));
+
+            send_msg_map(lbl, disc_trunc, cndx(lbl, w, u, x, y+1),   cndx(lbl, w, d, x, y-1),   cndx(lbl, w, r, x-1, y),    cndx(lbl, w, l, x+1, y),     cndx(lbl, w, pot, x, y), ndx(lbl, w, r, x, y),
+                                          edx(w, UP, rho, x, y+1),   edx(w, DOWN, rho, x, y-1), edx(w, RIGHT, rho, x-1, y), edx(w, LEFT, rho, x+1, y));
+
+            send_msg_map(lbl, disc_trunc, cndx(lbl, w, u, x, y+1),   cndx(lbl, w, d, x, y-1),   cndx(lbl, w, l, x+1, y),    cndx(lbl, w, r, x-1, y),     cndx(lbl, w, pot, x, y), ndx(lbl, w, l, x, y),
+                                          edx(w, UP, rho, x, y+1),   edx(w, DOWN, rho, x, y-1), edx(w, LEFT, rho, x+1, y),  edx(w, RIGHT, rho, x-1, y));
         }
     }
 
@@ -132,7 +153,7 @@ namespace {
         }
     }
 
-    __global__ void get_results(const uint lbl, const uint w, const uint h, const float *u, const float *d, const float *l, const float *r, const float *pot, uchar *out) {
+    __global__ void bp_get_results(const uint lbl, const uint w, const uint h, const float *u, const float *d, const float *l, const float *r, const float *pot, const float *rho, uchar *out) {
         const uint x = blockIdx.x * blockDim.x + threadIdx.x;
         const uint y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -151,7 +172,11 @@ namespace {
         const float *pott = cndx(lbl, w, pot, x, y);
 
         for (uint i = 0; i < lbl; ++i) {
-            const float val = ut[i] + dt[i] + lt[i] + rt[i] + pott[i];
+            const float val = ut[i] * edx(w, UP, rho, x, y+1)
+                            + dt[i] * edx(w, DOWN, rho, x, y-1)
+                            + lt[i] * edx(w, LEFT, rho, x+1, y)
+                            + rt[i] * edx(w, RIGHT, rho, x-1, y)
+                            + pott[i];
             if (val < min_value) {
                 min_label = i;
                 min_value = val;
@@ -162,32 +187,48 @@ namespace {
     }
 }
 
-std::vector<uchar> decode_hbp(const uchar labels, const uint layers, const uint max_iter, const uint width, const uint height, const std::vector<float> &pot, const float disc_trunc) {
-    const uint tile_size = 16;
-    dim3 block(tile_size, tile_size);
+std::vector<uchar> decode_trhbp(const uchar labels, const uint layers, const uint max_iter, const uint width, const uint height, const std::vector<float> &pot, const std::vector<std::vector<float> > &rho, const float disc_trunc) {
+    dim3 block(16, 16);
 
-    // move the potentials to device memory
-    float *dev_pot_initial;
-    cudaMalloc(&dev_pot_initial, pot.size() * sizeof(float));
-    cudaMemcpy(dev_pot_initial, &pot[0], pot.size() * sizeof(float), cudaMemcpyHostToDevice);
+    std::vector<float2> layer_sizes;
 
     // pointers for the layers
-    std::vector<float2> layer_sizes;
     std::vector<float *> dev_pot;
+    std::vector<float *> dev_rho;
 
     // messages on the current layer and on the one below
     float *dev_u, *dev_d, *dev_l, *dev_r;
     float *dev_pu, *dev_pd, *dev_pl, *dev_pr;
 
-    // inital set up
-    dev_pot.push_back(dev_pot_initial);
-    layer_sizes.push_back(make_float2(width, height));
+    { // initial set up
+        { // initalise potentials for the first layer
+            float *dev_pot_initial;
+            cudaMalloc(&dev_pot_initial, pot.size() * sizeof(float));
+            cudaMemcpy(dev_pot_initial, &pot[0], pot.size() * sizeof(float), cudaMemcpyHostToDevice);
 
-    // create potentials for all layers
+            dev_pot.push_back(dev_pot_initial);
+            layer_sizes.push_back(make_float2(width, height));
+        }
+
+        // calculate layer sizes
+        for (uint i = 1; i < layers; ++i) {
+            const uint layer_width = (layer_sizes[i-1].x + 1) / 2, layer_height = (layer_sizes[i-1].y + 1) / 2;
+            layer_sizes.push_back(make_float2(layer_width, layer_height));
+        }
+
+        // copy edge apparence probabilties to the GPU
+        for (uint i = 0; i < layers; ++i) {
+            float *dev_layer_rho;
+            cudaMalloc(&dev_layer_rho, rho[i].size() * sizeof(float));
+            cudaMemcpy(dev_layer_rho, &rho[i][0], rho[i].size() * sizeof(float), cudaMemcpyHostToDevice);
+            dev_rho.push_back(dev_layer_rho);
+        }
+    }
+
+    // create potentials and edge apparence probabiltiies for all layers
     for (uint i = 1; i < layers; ++i) {
-        // calculate size of this layer
-        const uint layer_width = (layer_sizes[i-1].x + 1) / 2, layer_height = (layer_sizes[i-1].y + 1) / 2;
-        layer_sizes.push_back(make_float2(layer_width, layer_height));
+        const uint layer_width = layer_sizes[i].x;
+        const uint layer_height = layer_sizes[i].y;
 
         // memory for the potentials
         float *dev_layer_pot;
@@ -195,7 +236,7 @@ std::vector<uchar> decode_hbp(const uchar labels, const uint layers, const uint 
         dev_pot.push_back(dev_layer_pot);
 
         // call the kernel to create the potential
-        dim3 grid((layer_width + tile_size - 1) / tile_size, (layer_height + tile_size - 1) / tile_size);
+        dim3 grid((layer_width + block.x - 1) / block.x, (layer_height + block.y - 1) / block.y);
         fill_next_layer_pot<<<grid, block>>>(labels, layer_width, layer_height, layer_sizes[i-1].x, layer_sizes[i-1].y, dev_pot[i-1], dev_layer_pot);
     }
 
@@ -210,40 +251,32 @@ std::vector<uchar> decode_hbp(const uchar labels, const uint layers, const uint 
         cudaMalloc(&dev_pd, top_size);
         cudaMalloc(&dev_pl, top_size);
         cudaMalloc(&dev_pr, top_size);
-
-        const uint elems = labels * layer_sizes.back().x * layer_sizes.back().y;
-        const uint size = elems * sizeof(float);
-
-        cudaMemset(dev_u, 0, size);
-        cudaMemset(dev_d, 0, size);
-        cudaMemset(dev_l, 0, size);
-        cudaMemset(dev_r, 0, size);
-    }
-
-    { // run an initial round of BP on the bottom layer
-        dim3 grid((layer_sizes.back().x + tile_size - 1) / tile_size, (layer_sizes.back().y + tile_size - 1) / tile_size);
-
-        for (uint i = 0; i < max_iter; ++i) {
-            bp<<<grid, block>>>(labels, layer_sizes.back().x, layer_sizes.back().y, disc_trunc, i, dev_pot.back(), dev_u, dev_d, dev_l, dev_r);
-        }
-
-        std::swap(dev_u, dev_pu);
-        std::swap(dev_d, dev_pd);
-        std::swap(dev_l, dev_pl);
-        std::swap(dev_r, dev_pr);
     }
 
     // create messages using the messages on the layer below
-    for (int i = layers - 2; i >= 0; --i) {
-        dim3 grid((layer_sizes[i].x + tile_size - 1) / tile_size, (layer_sizes[i].y + tile_size - 1) / tile_size);
-        prime<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, layer_sizes[i+1].x, dev_pu, dev_u);
-        prime<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, layer_sizes[i+1].x, dev_pd, dev_d);
-        prime<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, layer_sizes[i+1].x, dev_pl, dev_l);
-        prime<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, layer_sizes[i+1].x, dev_pr, dev_r);
+    for (int i = layers - 1; i >= 0; --i) {
+        dim3 grid((layer_sizes[i].x + block.x - 1) / block.x, (layer_sizes[i].y + block.y - 1) / block.y);
+
+        if (i == layers - 1) {
+            // initalise to zero on the bottom layer
+            const uint elems = labels * layer_sizes.back().x * layer_sizes.back().y;
+            const uint size = elems * sizeof(float);
+
+            cudaMemset(dev_u, 0, size);
+            cudaMemset(dev_d, 0, size);
+            cudaMemset(dev_l, 0, size);
+            cudaMemset(dev_r, 0, size);
+        } else {
+            // initalise from layers below
+            prime<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, layer_sizes[i+1].x, dev_pu, dev_u);
+            prime<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, layer_sizes[i+1].x, dev_pd, dev_d);
+            prime<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, layer_sizes[i+1].x, dev_pl, dev_l);
+            prime<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, layer_sizes[i+1].x, dev_pr, dev_r);
+        }
 
         // run the bp for this layer
         for (uint j = 0; j < max_iter; ++j) {
-            bp<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, disc_trunc, j, dev_pot[i], dev_u, dev_d, dev_l, dev_r);
+            bp<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, disc_trunc, j, dev_pot[i], dev_u, dev_d, dev_l, dev_r, dev_rho[i]);
         }
 
         std::swap(dev_u, dev_pu);
@@ -257,8 +290,8 @@ std::vector<uchar> decode_hbp(const uchar labels, const uint layers, const uint 
         uchar *dev_out;
         cudaMalloc(&dev_out, width * height * sizeof(uchar));
 
-        dim3 grid((width + tile_size - 1) / tile_size, (height + tile_size - 1) / tile_size);
-        get_results<<<grid, block>>>(labels, width, height, dev_pu, dev_pd, dev_pl, dev_pr, dev_pot_initial, dev_out);
+        dim3 grid((width + block.x - 1) / block.x, (height + block.y - 1) / block.y);
+        bp_get_results<<<grid, block>>>(labels, width, height, dev_pu, dev_pd, dev_pl, dev_pr, dev_pot[0], dev_rho[0], dev_out);
         cudaMemcpy(&results[0], dev_out, width * height * sizeof(uchar), cudaMemcpyDeviceToHost);
         cudaFree(dev_out);
     }
@@ -266,6 +299,7 @@ std::vector<uchar> decode_hbp(const uchar labels, const uint layers, const uint 
     { // clean up
         for (uint i = 0; i < dev_pot.size(); ++i) {
             cudaFree(dev_pot[i]);
+            cudaFree(dev_rho[i]);
         }
 
         cudaFree(dev_u);

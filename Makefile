@@ -3,7 +3,7 @@ OPT = -O2
 # CPU stuff
 CC = g++-4.7
 CFLAGS = -g $(OPT) -Wall -std=c++11
-SRCS = lodepng.cpp stereo.cpp
+SRCS = lodepng.cpp stereo.cpp mst.cpp
 
 # GPU stuff
 CUDA_PATH     ?= /usr/local/cuda
@@ -13,7 +13,7 @@ CUDA_INC_PATH ?= $(CUDA_PATH)/include
 
 CUDA = $(CUDA_BIN_PATH)/nvcc
 CUDA_FLAGS = $(OPT) -g -G -arch=sm_35
-CUDA_SRCS = hbp.cu
+CUDA_SRCS = trhbp.cu
 
 # Linker settings
 LDFLAGS = -I$(CUDA_INC_PATH) -L$(CUDA_LIB_PATH) -lcudart
@@ -24,7 +24,7 @@ OBJS = $(SRCS:.cpp=.o) $(CUDA_SRCS:.cu=.cuo)
 
 all: $(TARGETS)
 
-.PHONEY: test clean
+.PHONEY: test clean memcheck
 
 $(TARGETS): $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)
@@ -38,6 +38,11 @@ $(TARGETS): $(OBJS)
 test: stereo
 	mkdir -p out
 	./stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
+
+memcheck: stereo
+	mkdir -p out
+	$(CUDA_BIN_PATH)/cuda-memcheck ./stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
+
 
 pairs: stereo
 	mkdir -p out
