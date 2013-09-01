@@ -187,7 +187,7 @@ namespace {
     }
 }
 
-std::vector<uchar> decode_trhbp(const uchar labels, const uint layers, const uint max_iter, const uint width, const uint height, const std::vector<float> &pot, const std::vector<std::vector<float> > &rho, const float disc_trunc) {
+std::vector<uchar> decode_trhbp(const uchar labels, const std::vector<uint> &layers, const uint width, const uint height, const std::vector<float> &pot, const std::vector<std::vector<float> > &rho, const float disc_trunc) {
     dim3 block(16, 16);
 
     std::vector<float2> layer_sizes;
@@ -211,13 +211,13 @@ std::vector<uchar> decode_trhbp(const uchar labels, const uint layers, const uin
         }
 
         // calculate layer sizes
-        for (uint i = 1; i < layers; ++i) {
+        for (uint i = 1; i < layers.size(); ++i) {
             const uint layer_width = (layer_sizes[i-1].x + 1) / 2, layer_height = (layer_sizes[i-1].y + 1) / 2;
             layer_sizes.push_back(make_float2(layer_width, layer_height));
         }
 
         // copy edge apparence probabilties to the GPU
-        for (uint i = 0; i < layers; ++i) {
+        for (uint i = 0; i < layers.size(); ++i) {
             float *dev_layer_rho;
             cudaMalloc(&dev_layer_rho, rho[i].size() * sizeof(float));
             cudaMemcpy(dev_layer_rho, &rho[i][0], rho[i].size() * sizeof(float), cudaMemcpyHostToDevice);
@@ -226,7 +226,7 @@ std::vector<uchar> decode_trhbp(const uchar labels, const uint layers, const uin
     }
 
     // create potentials and edge apparence probabiltiies for all layers
-    for (uint i = 1; i < layers; ++i) {
+    for (uint i = 1; i < layers.size(); ++i) {
         const uint layer_width = layer_sizes[i].x;
         const uint layer_height = layer_sizes[i].y;
 
@@ -254,10 +254,10 @@ std::vector<uchar> decode_trhbp(const uchar labels, const uint layers, const uin
     }
 
     // create messages using the messages on the layer below
-    for (int i = layers - 1; i >= 0; --i) {
+    for (int i = layers.size() - 1; i >= 0; --i) {
         dim3 grid((layer_sizes[i].x + block.x - 1) / block.x, (layer_sizes[i].y + block.y - 1) / block.y);
 
-        if (i == layers - 1) {
+        if (i == layers.size() - 1) {
             // initalise to zero on the bottom layer
             const uint elems = labels * layer_sizes.back().x * layer_sizes.back().y;
             const uint size = elems * sizeof(float);
@@ -275,7 +275,7 @@ std::vector<uchar> decode_trhbp(const uchar labels, const uint layers, const uin
         }
 
         // run the bp for this layer
-        for (uint j = 0; j < max_iter; ++j) {
+        for (uint j = 0; j < layers[i]; ++j) {
             bp<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, disc_trunc, j, dev_pot[i], dev_u, dev_d, dev_l, dev_r, dev_rho[i]);
         }
 

@@ -17,13 +17,12 @@ namespace {
     typedef unsigned char uchar;
 
     // constants initalisation
-    const float linear_scaling = 0.075;
+    const float linear_scaling = 0.07;
     const float data_disc = 1.7;
     const float data_trunc = 15;
 
-    const uint layers = 1;
-    const uint iterations = 200;
     const uint mst_samples = 100;
+    const uint layer_spec[] = { 5, 5, 5, 5, 5 };
 }
 
 int main(int argc, char *argv[]) {
@@ -79,12 +78,13 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    std::vector<uint> layers(layer_spec, layer_spec + sizeof(layer_spec) / sizeof(layer_spec[0]));
     std::vector<std::vector<float>> rho;
     { // create the edge apparence probabilities
         uint w = width;
         uint h = height;
 
-        for (uint i = 0; i < layers; ++i) {
+        for (uint i = 0; i < layers.size(); ++i) {
             rho.push_back(sample_edge_apparence(w, h, mst_samples));
 
             w = (w + 1) / 2;
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    std::vector<uchar> result = decode_trhbp(labels, layers, iterations, width, height, unary_psi, rho, data_disc);
+    std::vector<uchar> result = decode_trhbp(labels, layers, width, height, unary_psi, rho, data_disc);
 
     // convert the results into an image
     std::vector<uchar> image(result.size() * 4);
