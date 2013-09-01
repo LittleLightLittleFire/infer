@@ -134,6 +134,38 @@ namespace {
         }
     }
 
+    __global__ void bp_async(const uint lbl, const uint w, const uint h, const float disc_trunc, const move dir, const float *pot, float *u, float *d, float *l, float *r, float *rho) {
+        const uint x = blockIdx.x * blockDim.x + threadIdx.x;
+        const uint y = blockIdx.y * blockDim.y + threadIdx.y;
+
+        // bounds check
+        if (x < 1 || y < 1 || x >= w - 1|| y >= h - 1) {
+            return;
+        }
+
+        switch (dir) {
+            case UP:
+                send_msg_map(lbl, disc_trunc, cndx(lbl, w, u, x, y+1),   cndx(lbl, w, l, x+1, y),   cndx(lbl, w, r, x-1, y),    cndx(lbl, w, d, x, y-1),     cndx(lbl, w, pot, x, y), ndx(lbl, w, u, x, y),
+                                              edx(w, UP, rho, x, y+1),   edx(w, LEFT, rho, x+1, y), edx(w, RIGHT, rho, x-1, y), edx(w, DOWN, rho, x, y-1));
+                break;
+
+            case DOWN:
+                send_msg_map(lbl, disc_trunc, cndx(lbl, w, d, x, y-1),   cndx(lbl, w, l, x+1, y),   cndx(lbl, w, r, x-1, y),    cndx(lbl, w, u, x, y+1),     cndx(lbl, w, pot, x, y), ndx(lbl, w, d, x, y),
+                                              edx(w, DOWN, rho, x, y-1), edx(w, LEFT, rho, x+1, y), edx(w, RIGHT, rho, x-1, y), edx(w, UP, rho, x, y+1));
+                break;
+
+            case RIGHT:
+                send_msg_map(lbl, disc_trunc, cndx(lbl, w, u, x, y+1),   cndx(lbl, w, d, x, y-1),   cndx(lbl, w, r, x-1, y),    cndx(lbl, w, l, x+1, y),     cndx(lbl, w, pot, x, y), ndx(lbl, w, r, x, y),
+                                              edx(w, UP, rho, x, y+1),   edx(w, DOWN, rho, x, y-1), edx(w, RIGHT, rho, x-1, y), edx(w, LEFT, rho, x+1, y));
+                break;
+
+            case LEFT:
+                send_msg_map(lbl, disc_trunc, cndx(lbl, w, u, x, y+1),   cndx(lbl, w, d, x, y-1),   cndx(lbl, w, l, x+1, y),    cndx(lbl, w, r, x-1, y),     cndx(lbl, w, pot, x, y), ndx(lbl, w, l, x, y),
+                                              edx(w, UP, rho, x, y+1),   edx(w, DOWN, rho, x, y-1), edx(w, LEFT, rho, x+1, y),  edx(w, RIGHT, rho, x-1, y));
+                break;
+        }
+    }
+
     /** initalise messages using the messages from the layer below */
     __global__ void prime(const uint lbl, const uint w, const uint h, const uint prev_w, const float *prev_msg, float *out) {
         const uint x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -187,7 +219,7 @@ namespace {
     }
 }
 
-std::vector<uchar> decode_trhbp(const uchar labels, const std::vector<uint> &layers, const uint width, const uint height, const std::vector<float> &pot, const std::vector<std::vector<float> > &rho, const float disc_trunc) {
+std::vector<uchar> decode_trhbp(const uchar labels, const std::vector<uint> &layers, const uint width, const uint height, const std::vector<float> &pot, const std::vector<std::vector<float> > &rho, const float disc_trunc, const bool sync) {
     dim3 block(16, 16);
 
     std::vector<float2> layer_sizes;
@@ -276,7 +308,14 @@ std::vector<uchar> decode_trhbp(const uchar labels, const std::vector<uint> &lay
 
         // run the bp for this layer
         for (uint j = 0; j < layers[i]; ++j) {
-            bp<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, disc_trunc, j, dev_pot[i], dev_u, dev_d, dev_l, dev_r, dev_rho[i]);
+            if (sync) {
+                bp<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, disc_trunc, j, dev_pot[i], dev_u, dev_d, dev_l, dev_r, dev_rho[i]);
+            } else {
+                bp_async<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, disc_trunc, RIGHT, dev_pot[i], dev_u, dev_d, dev_l, dev_r, dev_rho[i]);
+                bp_async<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, disc_trunc, DOWN, dev_pot[i], dev_u, dev_d, dev_l, dev_r, dev_rho[i]);
+                bp_async<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, disc_trunc, LEFT, dev_pot[i], dev_u, dev_d, dev_l, dev_r, dev_rho[i]);
+                bp_async<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, disc_trunc, UP, dev_pot[i], dev_u, dev_d, dev_l, dev_r, dev_rho[i]);
+            }
         }
 
         std::swap(dev_u, dev_pu);

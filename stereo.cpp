@@ -17,11 +17,13 @@ namespace {
     typedef unsigned char uchar;
 
     // constants initalisation
-    const float linear_scaling = 0.07;
+    const float linear_scaling = 0.075;
     const float data_disc = 1.7;
     const float data_trunc = 15;
 
     const uint mst_samples = 100;
+    const bool hbp = true;
+    const bool sync = false;
     const uint layer_spec[] = { 5, 5, 5, 5, 5 };
 }
 
@@ -85,14 +87,14 @@ int main(int argc, char *argv[]) {
         uint h = height;
 
         for (uint i = 0; i < layers.size(); ++i) {
-            rho.push_back(sample_edge_apparence(w, h, mst_samples));
+            rho.push_back(hbp ? std::vector<float>(width * height * 2, 1) : sample_edge_apparence(w, h, mst_samples));
 
             w = (w + 1) / 2;
             h = (h + 1) / 2;
         }
     }
 
-    std::vector<uchar> result = decode_trhbp(labels, layers, width, height, unary_psi, rho, data_disc);
+    std::vector<uchar> result = decode_trhbp(labels, layers, width, height, unary_psi, rho, data_disc, sync);
 
     // convert the results into an image
     std::vector<uchar> image(result.size() * 4);
