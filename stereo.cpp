@@ -17,14 +17,15 @@ namespace {
     typedef unsigned char uchar;
 
     // constants initalisation
-    const float linear_scaling = 0.075;
-    const float data_disc = 1.7;
-    const float data_trunc = 15;
+    const float lambda = 20;
+    const float smooth_trunc = 2;
 
-    const uint mst_samples = 100;
-    const bool hbp = true;
-    const bool sync = false;
-    const uint layer_spec[] = { 5, 5, 5, 5, 5 };
+    const uint mst_samples = 200;
+    const bool lbp = false;
+    const bool sync = true;
+
+    //const uint layer_spec[] = { 5, 5, 5, 5, 5 };
+    const uint layer_spec[] = { 200 };
 }
 
 int main(int argc, char *argv[]) {
@@ -74,7 +75,7 @@ int main(int argc, char *argv[]) {
             for (uint x = labels - 1; x < width; ++x) { // offset the index so we don't go out of bounds
                 const uint index = idx(x, y);
                 for (uint p = 0; p < labels; ++p) {
-                    unary_psi[ndx(x, y) + p] = linear_scaling * std::min<float>(abs(static_cast<int>(left[index]) - right[index - p]), data_trunc);
+                    unary_psi[ndx(x, y) + p] = std::abs(float(left[index]) - float(right[index - p]));
                 }
             }
         }
@@ -87,14 +88,14 @@ int main(int argc, char *argv[]) {
         uint h = height;
 
         for (uint i = 0; i < layers.size(); ++i) {
-            rho.push_back(hbp ? std::vector<float>(width * height * 2, 1) : sample_edge_apparence(w, h, mst_samples));
+            rho.push_back(lbp ? std::vector<float>(width * height * 2, 1) : sample_edge_apparence(w, h, mst_samples));
 
             w = (w + 1) / 2;
             h = (h + 1) / 2;
         }
     }
 
-    std::vector<uchar> result = decode_trhbp(labels, layers, width, height, unary_psi, rho, data_disc, sync);
+    std::vector<uchar> result = decode_trhbp(labels, layers, width, height, unary_psi, rho, lambda, smooth_trunc, sync);
 
     // convert the results into an image
     std::vector<uchar> image(result.size() * 4);

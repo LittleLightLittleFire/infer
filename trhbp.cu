@@ -72,7 +72,7 @@ namespace {
     }
 
     /** max product send message */
-    __device__ void send_msg_map(const uint labels, const float disc_trunc, const float *m1, const float *m2, const float *m3, const float *opp, const float *pot, float *out, const float rm1, const float rm2, const float rm3, const float ropp) {
+    __device__ void send_msg_map(const uint labels, float lambda, const float smooth_trunc, const float *m1, const float *m2, const float *m3, const float *opp, const float *pot, float *out, const float rm1, const float rm2, const float rm3, const float ropp) {
         float curr_min = CUDART_MAX_NORMAL_F;
 
         // add all the incoming messages together
@@ -81,18 +81,23 @@ namespace {
             curr_min = fminf(curr_min, out[i]);
         }
 
+        // adjust lambda because of trbp
+        lambda *= (1 / ropp);
+        const float s = lambda;
+        const float t = lambda * smooth_trunc;
+
         // do the O(n) trick
         for (uint i = 1; i < labels; ++i) {
-            out[i] = fminf(out[i-1] + (1 / ropp), out[i]);
+            out[i] = fminf(out[i-1] + s, out[i]);
         }
 
         for (int i = labels - 2; i >= 0; --i) {
-            out[i] = fminf(out[i+1] + (1 / ropp), out[i]);
+            out[i] = fminf(out[i+1] + s, out[i]);
         }
 
         // truncate
         for (uint i = 0; i < labels; ++i) {
-            out[i] = fminf(curr_min + disc_trunc, out[i]);
+            out[i] = fminf(curr_min + t, out[i]);
         }
 
         // normalise
@@ -108,7 +113,7 @@ namespace {
     }
 
     /** tree reweighted belief propagation */
-    __global__ void bp(const uint lbl, const uint w, const uint h, const float disc_trunc, const uint i, const float *pot, float *u, float *d, float *l, float *r, float *rho) {
+    __global__ void bp(const uint lbl, const uint w, const uint h, const float lambda, const float smooth_trunc, const uint i, const float *pot, float *u, float *d, float *l, float *r, float *rho) {
         const uint x = blockIdx.x * blockDim.x + threadIdx.x;
         const uint y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -120,21 +125,21 @@ namespace {
         // check if this thread is active for this iteration
         if ((x + y + i) % 2 == 0) {
             //                            m1                         m2                         m3                          opp                          pot                      out
-            send_msg_map(lbl, disc_trunc, cndx(lbl, w, u, x, y+1),   cndx(lbl, w, l, x+1, y),   cndx(lbl, w, r, x-1, y),    cndx(lbl, w, d, x, y-1),     cndx(lbl, w, pot, x, y), ndx(lbl, w, u, x, y),
+            send_msg_map(lbl, lambda, smooth_trunc, cndx(lbl, w, u, x, y+1),   cndx(lbl, w, l, x+1, y),   cndx(lbl, w, r, x-1, y),    cndx(lbl, w, d, x, y-1),     cndx(lbl, w, pot, x, y), ndx(lbl, w, u, x, y),
                                           edx(w, UP, rho, x, y+1),   edx(w, LEFT, rho, x+1, y), edx(w, RIGHT, rho, x-1, y), edx(w, DOWN, rho, x, y-1));
 
-            send_msg_map(lbl, disc_trunc, cndx(lbl, w, d, x, y-1),   cndx(lbl, w, l, x+1, y),   cndx(lbl, w, r, x-1, y),    cndx(lbl, w, u, x, y+1),     cndx(lbl, w, pot, x, y), ndx(lbl, w, d, x, y),
+            send_msg_map(lbl, lambda, smooth_trunc, cndx(lbl, w, d, x, y-1),   cndx(lbl, w, l, x+1, y),   cndx(lbl, w, r, x-1, y),    cndx(lbl, w, u, x, y+1),     cndx(lbl, w, pot, x, y), ndx(lbl, w, d, x, y),
                                           edx(w, DOWN, rho, x, y-1), edx(w, LEFT, rho, x+1, y), edx(w, RIGHT, rho, x-1, y), edx(w, UP, rho, x, y+1));
 
-            send_msg_map(lbl, disc_trunc, cndx(lbl, w, u, x, y+1),   cndx(lbl, w, d, x, y-1),   cndx(lbl, w, r, x-1, y),    cndx(lbl, w, l, x+1, y),     cndx(lbl, w, pot, x, y), ndx(lbl, w, r, x, y),
+            send_msg_map(lbl, lambda, smooth_trunc, cndx(lbl, w, u, x, y+1),   cndx(lbl, w, d, x, y-1),   cndx(lbl, w, r, x-1, y),    cndx(lbl, w, l, x+1, y),     cndx(lbl, w, pot, x, y), ndx(lbl, w, r, x, y),
                                           edx(w, UP, rho, x, y+1),   edx(w, DOWN, rho, x, y-1), edx(w, RIGHT, rho, x-1, y), edx(w, LEFT, rho, x+1, y));
 
-            send_msg_map(lbl, disc_trunc, cndx(lbl, w, u, x, y+1),   cndx(lbl, w, d, x, y-1),   cndx(lbl, w, l, x+1, y),    cndx(lbl, w, r, x-1, y),     cndx(lbl, w, pot, x, y), ndx(lbl, w, l, x, y),
+            send_msg_map(lbl, lambda, smooth_trunc, cndx(lbl, w, u, x, y+1),   cndx(lbl, w, d, x, y-1),   cndx(lbl, w, l, x+1, y),    cndx(lbl, w, r, x-1, y),     cndx(lbl, w, pot, x, y), ndx(lbl, w, l, x, y),
                                           edx(w, UP, rho, x, y+1),   edx(w, DOWN, rho, x, y-1), edx(w, LEFT, rho, x+1, y),  edx(w, RIGHT, rho, x-1, y));
         }
     }
 
-    __global__ void bp_async(const uint lbl, const uint w, const uint h, const float disc_trunc, const move dir, const float *pot, float *u, float *d, float *l, float *r, float *rho) {
+    __global__ void bp_async(const uint lbl, const uint w, const uint h, const float lambda, const float smooth_trunc, const move dir, const float *pot, float *u, float *d, float *l, float *r, float *rho) {
         const uint x = blockIdx.x * blockDim.x + threadIdx.x;
         const uint y = blockIdx.y * blockDim.y + threadIdx.y;
 
@@ -145,22 +150,22 @@ namespace {
 
         switch (dir) {
             case UP:
-                send_msg_map(lbl, disc_trunc, cndx(lbl, w, u, x, y+1),   cndx(lbl, w, l, x+1, y),   cndx(lbl, w, r, x-1, y),    cndx(lbl, w, d, x, y-1),     cndx(lbl, w, pot, x, y), ndx(lbl, w, u, x, y),
+                send_msg_map(lbl, lambda, smooth_trunc, cndx(lbl, w, u, x, y+1),   cndx(lbl, w, l, x+1, y),   cndx(lbl, w, r, x-1, y),    cndx(lbl, w, d, x, y-1),     cndx(lbl, w, pot, x, y), ndx(lbl, w, u, x, y),
                                               edx(w, UP, rho, x, y+1),   edx(w, LEFT, rho, x+1, y), edx(w, RIGHT, rho, x-1, y), edx(w, DOWN, rho, x, y-1));
                 break;
 
             case DOWN:
-                send_msg_map(lbl, disc_trunc, cndx(lbl, w, d, x, y-1),   cndx(lbl, w, l, x+1, y),   cndx(lbl, w, r, x-1, y),    cndx(lbl, w, u, x, y+1),     cndx(lbl, w, pot, x, y), ndx(lbl, w, d, x, y),
+                send_msg_map(lbl, lambda, smooth_trunc, cndx(lbl, w, d, x, y-1),   cndx(lbl, w, l, x+1, y),   cndx(lbl, w, r, x-1, y),    cndx(lbl, w, u, x, y+1),     cndx(lbl, w, pot, x, y), ndx(lbl, w, d, x, y),
                                               edx(w, DOWN, rho, x, y-1), edx(w, LEFT, rho, x+1, y), edx(w, RIGHT, rho, x-1, y), edx(w, UP, rho, x, y+1));
                 break;
 
             case RIGHT:
-                send_msg_map(lbl, disc_trunc, cndx(lbl, w, u, x, y+1),   cndx(lbl, w, d, x, y-1),   cndx(lbl, w, r, x-1, y),    cndx(lbl, w, l, x+1, y),     cndx(lbl, w, pot, x, y), ndx(lbl, w, r, x, y),
+                send_msg_map(lbl, lambda, smooth_trunc, cndx(lbl, w, u, x, y+1),   cndx(lbl, w, d, x, y-1),   cndx(lbl, w, r, x-1, y),    cndx(lbl, w, l, x+1, y),     cndx(lbl, w, pot, x, y), ndx(lbl, w, r, x, y),
                                               edx(w, UP, rho, x, y+1),   edx(w, DOWN, rho, x, y-1), edx(w, RIGHT, rho, x-1, y), edx(w, LEFT, rho, x+1, y));
                 break;
 
             case LEFT:
-                send_msg_map(lbl, disc_trunc, cndx(lbl, w, u, x, y+1),   cndx(lbl, w, d, x, y-1),   cndx(lbl, w, l, x+1, y),    cndx(lbl, w, r, x-1, y),     cndx(lbl, w, pot, x, y), ndx(lbl, w, l, x, y),
+                send_msg_map(lbl, lambda, smooth_trunc, cndx(lbl, w, u, x, y+1),   cndx(lbl, w, d, x, y-1),   cndx(lbl, w, l, x+1, y),    cndx(lbl, w, r, x-1, y),     cndx(lbl, w, pot, x, y), ndx(lbl, w, l, x, y),
                                               edx(w, UP, rho, x, y+1),   edx(w, DOWN, rho, x, y-1), edx(w, LEFT, rho, x+1, y),  edx(w, RIGHT, rho, x-1, y));
                 break;
         }
@@ -219,7 +224,7 @@ namespace {
     }
 }
 
-std::vector<uchar> decode_trhbp(const uchar labels, const std::vector<uint> &layers, const uint width, const uint height, const std::vector<float> &pot, const std::vector<std::vector<float> > &rho, const float disc_trunc, const bool sync) {
+std::vector<uchar> decode_trhbp(const uchar labels, const std::vector<uint> &layers, const uint width, const uint height, const std::vector<float> &pot, const std::vector<std::vector<float> > &rho, const float lambda, const float smooth_trunc, const bool sync) {
     dim3 block(16, 16);
 
     std::vector<float2> layer_sizes;
@@ -309,12 +314,12 @@ std::vector<uchar> decode_trhbp(const uchar labels, const std::vector<uint> &lay
         // run the bp for this layer
         for (uint j = 0; j < layers[i]; ++j) {
             if (sync) {
-                bp<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, disc_trunc, j, dev_pot[i], dev_u, dev_d, dev_l, dev_r, dev_rho[i]);
+                bp<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, lambda, smooth_trunc, j, dev_pot[i], dev_u, dev_d, dev_l, dev_r, dev_rho[i]);
             } else {
-                bp_async<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, disc_trunc, RIGHT, dev_pot[i], dev_u, dev_d, dev_l, dev_r, dev_rho[i]);
-                bp_async<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, disc_trunc, DOWN, dev_pot[i], dev_u, dev_d, dev_l, dev_r, dev_rho[i]);
-                bp_async<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, disc_trunc, LEFT, dev_pot[i], dev_u, dev_d, dev_l, dev_r, dev_rho[i]);
-                bp_async<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, disc_trunc, UP, dev_pot[i], dev_u, dev_d, dev_l, dev_r, dev_rho[i]);
+                bp_async<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, lambda, smooth_trunc, RIGHT, dev_pot[i], dev_u, dev_d, dev_l, dev_r, dev_rho[i]);
+                bp_async<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, lambda, smooth_trunc, DOWN, dev_pot[i], dev_u, dev_d, dev_l, dev_r, dev_rho[i]);
+                bp_async<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, lambda, smooth_trunc, LEFT, dev_pot[i], dev_u, dev_d, dev_l, dev_r, dev_rho[i]);
+                bp_async<<<grid, block>>>(labels, layer_sizes[i].x, layer_sizes[i].y, lambda, smooth_trunc, UP, dev_pot[i], dev_u, dev_d, dev_l, dev_r, dev_rho[i]);
             }
         }
 
