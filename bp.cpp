@@ -8,28 +8,28 @@ namespace {
     typedef unsigned char uchar;
 }
 
-void send_msg_lin_trunc(const message_data in, const float data_disc) {
+void send_msg_lin_trunc(const message_data in, float lambda, const float smooth_trunc) {
     // compute the new message partially, deal with the pairwise term later
     for (uint i = 0; i < in.labels; ++i) {
         in.out[i] = in.m1[i] * in.rm1 + in.m2[i] * in.rm2 + in.m3[i] * in.rm3 + in.opp[i] * (in.ropp - 1) + in.pot[i];
     }
 
-    { // truncate
-        // normally we would be forced to multiply this into the pairwise term which is has the size: labels^2, that would be painful
-        // but since the pairwise term in a special form - min(y_i - y_j, d) (truncated linear model), we could get the result in linear time
-        // algorithm from Pedro F. Felzenszwalb and Daniel P. Huttenlocher (2006): Efficient Belief Propagation for Early Vision
+    // because of trbp
+    lambda *= (1 / in.ropp);
 
-        // compute the minimum to truncate with
-        const float trunc = data_disc + *std::min_element(in.out, in.out + in.labels);
+    // derive s and t
+    const float s = lambda;
+    const float t = lambda * smooth_trunc;
 
-        // first pass, equivalent to a haskell `scanl (min . succ . (+ c))`
+    { // calculate the pairwise term using the O(n) algorithm
+        const float trunc = t + *std::min_element(in.out, in.out + in.labels);
+
         for (uint i = 1; i < in.labels; ++i) {
-            in.out[i] = std::min(in.out[i - 1] + (1 / in.ropp), in.out[i]);
+            in.out[i] = std::min(in.out[i - 1] + s, in.out[i]);
         }
 
-        // second pass, same thing but with the list reversed
         for (int i = in.labels - 2; i >= 0; --i) {
-            in.out[i] = std::min(in.out[i + 1] + (1 / in.ropp), in.out[i]);
+            in.out[i] = std::min(in.out[i + 1] + s, in.out[i]);
         }
 
         std::transform(in.out, in.out + in.labels, in.out, [trunc](const float x){ return std::min(x, trunc); });

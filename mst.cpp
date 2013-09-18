@@ -23,7 +23,7 @@ namespace {
    };
 }
 
-std::vector<uint> sample_edge_apparence(const uint width, const uint height, const uint max_iter) {
+std::vector<float> sample_edge_apparence(const uint width, const uint height, const uint max_iter) {
     // create minimal spanning trees with the edges having random weights [0,1], until all the edges are covered, count edge apparences
     const indexer ndx(width, height);
     const edge_indexer edx(width, height);
@@ -55,7 +55,7 @@ std::vector<uint> sample_edge_apparence(const uint width, const uint height, con
     }
 
     // record which edges were chosen
-    std::vector<uint> edge_record(node_count * 2);
+    std::vector<float> edge_record(node_count * 2);
 
     for (uint i = 0; i < max_iter; ++i) {
         std::priority_queue<std::tuple<int, uint, uint>> heap; // <weight, edge, other_node>
@@ -100,6 +100,9 @@ std::vector<uint> sample_edge_apparence(const uint width, const uint height, con
             }
         }
     }
+
+    // find the average
+    std::transform(edge_record.begin(), edge_record.end(), edge_record.begin(), [max_iter](const float x) { return x / max_iter; });
 
     return edge_record;
 }

@@ -17,12 +17,12 @@ namespace {
     typedef unsigned int uint;
     typedef unsigned char uchar;
 
-    // constants initalisation
-    const uint mst_samples = 50;
+    const uint mst_samples = 2000; // higher the better
+    const uint max_iter = 200;
+    const bool sync = true;
 
-    const float linear_scaling = 0.075;
-    const float data_disc = 1.7;
-    const float data_trunc = 15;
+    const float lambda = 20;
+    const float smooth_trunc = 2;
 }
 
 int main(int argc, char *argv[]) {
@@ -72,20 +72,17 @@ int main(int argc, char *argv[]) {
             for (uint x = labels - 1; x < width; ++x) { // offset the index so we don't go out of bounds
                 const uint index = idx(x, y);
                 for (uint p = 0; p < labels; ++p) {
-                    unary_psi[ndx(x, y) + p] = linear_scaling * std::min<float>(abs(static_cast<int>(left[index]) - right[index - p]), data_trunc);
+                    unary_psi[ndx(x, y) + p] = std::abs(float(left[index]) - float(right[index - p]));
                 }
             }
         }
     }
 
     // sample the grid
-    std::vector<uint> edge_samples = sample_edge_apparence(width, height, mst_samples);
-
-    std::vector<float> rho;
-    std::transform(edge_samples.begin(), edge_samples.end(), std::back_inserter(rho), [](const uchar count){ return static_cast<float>(count) / mst_samples; });
+    std::vector<float> rho = sample_edge_apparence(width, height, mst_samples);
 
     std::cout << "finished running " << mst_samples << " samples" << std::endl;
-    std::vector<uchar> result = decode_trbp(labels, 200, width, height, unary_psi, rho, std::bind(send_msg_lin_trunc, std::placeholders::_1, data_disc), true);
+    std::vector<uchar> result = decode_trbp(labels, max_iter, width, height, unary_psi, rho, std::bind(send_msg_lin_trunc, std::placeholders::_1, lambda, smooth_trunc), sync);
 
     // convert the results into an image
     std::vector<uchar> image(result.size() * 4);

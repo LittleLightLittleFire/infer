@@ -13,7 +13,7 @@ struct message_data {
     unsigned labels;  // put this last for alignment on 64 bit systems
 };
 
-void send_msg_lin_trunc(const message_data in, const float data_disc);
+void send_msg_lin_trunc(const message_data in, const float lambda, const float data_disc);
 
 std::vector<unsigned char> decode_trbp(const uint labels, const uint max_iter, const uint width, const uint height, const std::vector<float> &pot, const std::vector<float> &rho, const std::function<void(message_data)> send_msg, const bool sync);
 
