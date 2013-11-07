@@ -1,7 +1,7 @@
 CC = clang++
 CFLAGS = -g -O2 -Wall -std=c++11
 LDFLAGS =
-SRCS = stereo.cpp lodepng.cpp mst.cpp bp.cpp
+SRCS = stereo.cpp lodepng.cpp crf.cpp bp.cpp method.cpp
 TARGETS = stereo
 
 OBJS = $(SRCS:.cpp=.o)
@@ -27,7 +27,11 @@ pairs: stereo
 	./stereo 60 4 data/cones/imL.png data/cones/imR.png out/cones.png
 	./stereo 60 4 data/teddy/imL.png data/teddy/imR.png out/teddy.png
 
+docs:
+	doxygen
+
 clean:
 	-rm *.o
 	-rm $(TARGETS)
-	-rm out/*
+	-rm -r out/
+	-rm -r docs/

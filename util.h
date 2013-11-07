@@ -1,11 +1,15 @@
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef INFER_UTIL_H
+#define INFER_UTIL_H
 
 #include <vector>
 
+namespace infer {
+
 enum class move { UP, DOWN, LEFT, RIGHT };
 
-/** Makes indexing two dimensional arrays a bit easier */
+/**
+ * Converts coordinates into 2d array coordinates
+ */
 struct indexer {
     const unsigned width_, height_, scale_;
     explicit indexer(const unsigned width, const unsigned height, const unsigned scale = 1) : width_(width), height_(height), scale_(scale) { }
@@ -32,17 +36,19 @@ struct indexer {
 
     template <typename T>
     T *operator()(std::vector<T> &vec, const unsigned x, const unsigned y) const {
-        return &vec[operator()(x, y)]; // too lazy to do the const cast trick
+        return &vec[operator()(x, y)]; // the const cast trick won't save us this duplication since the const method can have more strict arguments
     }
 
 };
 
-/** converts relative coordinates to an edge index, edges are stored in { down, right, down, right ...} order */
+/**
+ * Converts relative coordinates to an edge index, edges are stored in { down, right, down, right ...} order
+ */
 struct edge_indexer {
-    const uint width_, height_;
-    explicit edge_indexer(const uint width, const uint height) : width_(width), height_(height) { }
+    const unsigned width_, height_;
+    explicit edge_indexer(const unsigned width, const unsigned height) : width_(width), height_(height) { }
 
-    unsigned operator()(const uint x, const uint y, const move m) const {
+    unsigned operator()(const unsigned x, const unsigned y, const move m) const {
         switch (m) {
             case move::UP:    return (x + width_ * (y - 1)) * 2;
             case move::DOWN:  return (x + width_ * y) * 2;
@@ -51,7 +57,7 @@ struct edge_indexer {
         }
     }
 
-    unsigned operator()(const uint idx, const move m) const {
+    unsigned operator()(const unsigned idx, const move m) const {
         switch (m) {
             case move::UP:    return idx * 2 - width_ * 2;
             case move::DOWN:  return idx * 2;
@@ -61,4 +67,6 @@ struct edge_indexer {
     }
 };
 
-#endif // UTIL_H
+}
+
+#endif // INFER_UTIL_H

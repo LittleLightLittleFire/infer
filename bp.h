@@ -1,20 +1,36 @@
-#ifndef BP_H
-#define BP_H
+#ifndef INFER_BP_H
+#define INFER_BP_H
+
+#include "method.h"
 
 #include <vector>
-#include <functional>
 
-/** A struct that packs in all the data required by a send_message function */
-struct message_data {
-    const float *m1, *m2, *m3, *opp, *pot; // 3 messages in and the opposite message
-    float *out;
+namespace infer {
 
-    const float rm1, rm2, rm3, ropp;
-    unsigned labels;  // put this last for alignment on 64 bit systems
+/**
+ * Max product belief propagation
+ */
+class bp : public method {
+protected:
+    const bool synchronous_;
+    unsigned current_iter;
+    const indexer ndx_;
+
+    std::vector<float> up_, down_, left_, right_, dummy_;
+
+public:
+    explicit bp(const crf &crf, const bool synchronous);
+
+    virtual void run(const unsigned iterations) override;
+    virtual unsigned get_label(const unsigned x, const unsigned y) const override;
+
+    virtual ~bp() = default;
+
+protected:
+    float *msg(std::vector<float> &msg, const unsigned x, const unsigned y) const;
+    float msg(const std::vector<float> &msg, const unsigned x, const unsigned y, const unsigned label) const;
 };
 
-void send_msg_lin_trunc(const message_data in, const float lambda, const float data_disc);
+}
 
-std::vector<unsigned char> decode_trbp(const uint labels, const uint max_iter, const uint width, const uint height, const std::vector<float> &pot, const std::vector<float> &rho, const std::function<void(message_data)> send_msg, const bool sync);
-
-#endif // BP_H
+#endif // INFER_BP_H

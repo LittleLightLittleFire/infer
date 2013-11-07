@@ -1,140 +1,120 @@
+#include "bp.h"
+
+#include <limits>
 #include <algorithm>
 
-#include "bp.h"
-#include "util.h"
+namespace infer {
 
 namespace {
-    typedef unsigned int uint;
-    typedef unsigned char uchar;
+
+inline void send_msg(const crf &crf_, const float *m1, const float *m2, const float *m3, const float *pot, float *out, const unsigned x, const unsigned y, const unsigned xt, const unsigned yt) {
+    const unsigned labels = crf_.labels_;
+    switch (crf_.type_) {
+        case crf::type::L1:
+            // use the O(n) algorithm from Pedro F. Felzenszwalb and Daniel P. Huttenlocher (2006): Efficient Belief Propagation for Early Vision
+            // compute the new message partially, deal with the pairwise term later
+            for (unsigned i = 0; i < labels; ++i) {
+                out[i] = m1[i] + m2[i] + m3[i] + pot[i];
+            }
+
+            { // truncate
+                // compute the minimum to truncate with
+                const float trunc = crf_.trunc_ * crf_.lambda_;
+                const float scale = crf_.lambda_;
+
+                const float trunc_min = trunc + *std::min_element(out, out + labels);
+
+                for (unsigned i = 1; i < labels; ++i) {
+                    out[i] = std::min(out[i - 1] + scale, out[i]);
+                }
+
+                // second pass, same th but with the list reversed
+                for (unsigned i = labels - 2; i-- > 0; ) {
+                    out[i] = std::min(out[i + 1] + scale, out[i]);
+                }
+
+                std::transform(out, out + labels, out, [trunc_min](const float x){ return std::min(x, trunc_min); });
+
+            }
+            break;
+        case crf::type::L2: // TODO: optimised L2 norm algorithm
+        case crf::type::ARRAY:
+        default:
+            for (unsigned i = 0; i < labels; ++i) {
+                out[i] = std::numeric_limits<float>::max();
+                for (unsigned j = 0; j < labels; ++j) {
+                    const float val = pot[j] + m1[j] + m2[j] + m3[j] + crf_.pairwise(x, y, i, xt, yt, j);
+                    out[i] = std::min(out[i], val);
+                }
+            }
+            break;
+    }
+
+    // normalise floating point messages to avoid over/underflow
+    const float sum = std::accumulate(out, out + labels, 0.0f) / static_cast<float>(labels);
+    std::transform(out, out + labels, out, [sum](const float x){ return x - sum; });
 }
 
-void send_msg_lin_trunc(const message_data in, float lambda, const float smooth_trunc) {
-    // compute the new message partially, deal with the pairwise term later
-    for (uint i = 0; i < in.labels; ++i) {
-        in.out[i] = in.m1[i] * in.rm1 + in.m2[i] * in.rm2 + in.m3[i] * in.rm3 + in.opp[i] * (in.ropp - 1) + in.pot[i];
-    }
-
-    // because of trbp
-    lambda *= (1 / in.ropp);
-
-    // derive s and t
-    const float s = lambda;
-    const float t = lambda * smooth_trunc;
-
-    { // calculate the pairwise term using the O(n) algorithm
-        const float trunc = t + *std::min_element(in.out, in.out + in.labels);
-
-        for (uint i = 1; i < in.labels; ++i) {
-            in.out[i] = std::min(in.out[i - 1] + s, in.out[i]);
-        }
-
-        for (int i = in.labels - 2; i >= 0; --i) {
-            in.out[i] = std::min(in.out[i + 1] + s, in.out[i]);
-        }
-
-        std::transform(in.out, in.out + in.labels, in.out, [trunc](const float x){ return std::min(x, trunc); });
-    }
-
-    // normalise
-    const float sum = std::accumulate(in.out, in.out + in.labels, 0.0f) / in.labels;
-    std::transform(in.out, in.out + in.labels, in.out, [sum](const float x){ return x - sum; });
 }
 
-std::vector<uchar> decode_trbp(const uint labels, const uint max_iter, const uint width, const uint height, const std::vector<float> &pot, const std::vector<float> &rho, const std::function<void(message_data)> send_msg, const bool sync) {
-    // allocate space for messages, in four directions (up, down, left and right)
-    const uint nodes = width * height;
-    const uint elements = labels * nodes;
+bp::bp(const crf &crf, const bool synchronous)
+    : method(crf)
+    , synchronous_(synchronous)
+    , current_iter(0)
+    , ndx_(crf_.width_, crf_.height_, crf.labels_)
+    , up_(crf_.width_ * crf_.height_ * crf.labels_)
+    , down_(crf_.width_ * crf_.height_ * crf.labels_)
+    , left_(crf_.width_ * crf_.height_ * crf.labels_)
+    , right_(crf_.width_ * crf_.height_ * crf.labels_)
+    , dummy_(crf_.labels_) {
+}
 
-    const edge_indexer edx(width, height);
-    const indexer ndx(width, height, labels);
+float bp::msg(const std::vector<float> &msg, const unsigned x, const unsigned y, const unsigned label) const {
+    return msg[ndx_(x, y) + label];
+}
 
-    // convenience functions
-    const auto left = move::LEFT, right = move::RIGHT, up = move::UP, down = move::DOWN;
-    const auto get = [&rho, &edx](const move m, const uint x, const uint y) {
-        return rho[edx(x, y, m)];
-    };
+float *bp::msg(std::vector<float> &msg, const unsigned x, const unsigned y) const {
+    return &msg[ndx_(x, y)];
+}
 
-    std::vector<float> u(elements), d(elements), l(elements), r(elements);
-    for (uint i = 0; i < max_iter; ++i) {
-        if (sync) {
-            // checkerboard update scheme
-            for (uint y = 1; y < height - 1; ++y) {
-                for (uint x = ((y + i) % 2) + 1; x < width - 1; x += 2) {
-                    // send messages in each direction
-                    //        m1                   m2                   m3                   opp                     pot             out
-                    send_msg({ ndx(u,  x, y+1),    ndx(l   , x+1, y),  ndx(r,     x-1, y),  ndx(d,    x, y-1),    ndx(pot, x, y),    ndx(u, x, y),
-                             get(up, x, y+1),    get(left, x+1, y),  get(right, x-1, y),  get(down, x, y-1), labels });
+void bp::run(const unsigned iterations) {
+    for (unsigned i = 0; i < iterations; ++i) {
+        ++current_iter;
 
-                    send_msg({ ndx(d,    x, y-1),  ndx(l   , x+1, y),  ndx(r,     x-1, y),  ndx(u,  x, y+1),      ndx(pot, x, y),    ndx(d, x, y),
-                             get(down, x, y-1),  get(left, x+1, y),  get(right, x-1, y),  get(up, x, y+1), labels });
-
-                    send_msg({ ndx(u,  x, y+1),    ndx(d,    x, y-1),  ndx(r,     x-1, y),  ndx(l,    x+1, y),    ndx(pot, x, y),    ndx(r, x, y),
-                             get(up, x, y+1),    get(down, x, y-1),  get(right, x-1, y),  get(left, x+1, y), labels });
-
-                    send_msg({ ndx(u,  x, y+1),    ndx(d,    x, y-1),  ndx(l,    x+1, y),   ndx(r,     x-1, y),   ndx(pot, x, y),    ndx(l, x, y),
-                             get(up, x, y+1),    get(down, x, y-1),  get(left, x+1, y),   get(right, x-1, y), labels });
-                }
-            }
-        } else  {
-            // right messages
-            for (uint x = 1; x < width - 1; ++x) {
-                for (uint y = 1; y < height - 1; ++y) {
-                    send_msg({ ndx(u,  x, y+1),    ndx(d,    x, y-1),  ndx(r,     x-1, y),  ndx(l,    x+1, y),    ndx(pot, x, y),    ndx(r, x, y),
-                                 get(up, x, y+1),    get(down, x, y-1),  get(right, x-1, y),  get(left, x+1, y), labels });
-                    }
-            }
-
-            // down messages
-            for (uint x = 1; x < width - 1; ++x) {
-                for (uint y = 1; y < height - 1; ++y) {
-                    send_msg({ ndx(d,    x, y-1),  ndx(l   , x+1, y),  ndx(r,     x-1, y),  ndx(u,  x, y+1),      ndx(pot, x, y),    ndx(d, x, y),
-                             get(down, x, y-1),  get(left, x+1, y),  get(right, x-1, y),  get(up, x, y+1), labels });
-                    }
-            }
-
-            // left messages
-            for (uint x = 1; x < width - 1; ++x) {
-                for (uint y = 1; y < height - 1; ++y) {
-                    send_msg({ ndx(u,  x, y+1),    ndx(d,    x, y-1),  ndx(l,    x+1, y),   ndx(r,     x-1, y),   ndx(pot, x, y),    ndx(l, x, y),
-                             get(up, x, y+1),    get(down, x, y-1),  get(left, x+1, y),   get(right, x-1, y), labels });
-                }
-            }
-
-            // up messages
-            for (uint x = 1; x < width - 1; ++x) {
-                for (uint y = 1; y < height - 1; ++y) {
-                    send_msg({ ndx(u,  x, y+1),    ndx(l   , x+1, y),  ndx(r,     x-1, y),  ndx(d,    x, y-1),    ndx(pot, x, y),    ndx(u, x, y),
-                             get(up, x, y+1),    get(left, x+1, y),  get(right, x-1, y),  get(down, x, y-1), labels });
-                }
+        // do not use i for when doing the checkboard update pattern
+        for (unsigned y = 1; y < crf_.height_ - 1; ++y) {
+            for (unsigned x = ((y + current_iter) % 2) + 1; x < crf_.width_ - 1; x += 2) {
+                // send messages in each direction
+                //        m1                       m2                  m3                   pot               out
+                send_msg(crf_, msg(up_,   x, y+1), msg(left_, x+1, y), msg(right_, x-1, y), crf_.unary(x, y), msg(up_, x, y),    x, y, x, y-1);
+                send_msg(crf_, msg(down_, x, y-1), msg(left_, x+1, y), msg(right_, x-1, y), crf_.unary(x, y), msg(down_, x, y),  x, y, x, y+1);
+                send_msg(crf_, msg(up_,   x, y+1), msg(down_, x, y-1), msg(right_, x-1, y), crf_.unary(x, y), msg(right_, x, y), x, y, x+1, y);
+                send_msg(crf_, msg(up_,   x, y+1), msg(down_, x, y-1), msg(left_,  x+1, y), crf_.unary(x, y), msg(left_, x, y),  x, y, x-1, y);
             }
         }
     }
+}
 
-    std::vector<uchar> result(nodes);
-    const indexer idx(width, height);
+unsigned bp::get_label(const unsigned x, const unsigned y) const {
+    // the label of the node is the label with the lowest energy
+    unsigned min_label = 0;
+    float min_value = std::numeric_limits<float>::max();
 
-    // for each pixel: find the most likely label
-    for (uint y = 1; y < height - 1; ++y) {
-        for (uint x = 1; x < width - 1; ++x) {
-            uint min_label = 0;
-            float min_value = std::numeric_limits<float>::max();
+    for (unsigned i = 0; i < crf_.labels_; ++i) {
+        float val = crf_.unary(x, y, i);
 
-            for (uint i = 0; i < labels; ++i) {
-                const float val = u[ndx(x, y+1) + i] * get(up,    x, y+1)
-                                + d[ndx(x, y-1) + i] * get(down,  x, y-1)
-                                + l[ndx(x+1, y) + i] * get(left,  x+1, y)
-                                + r[ndx(x-1, y) + i] * get(right, x-1, y)
-                                + pot[ndx(x, y) + i];
+        // check the bounds first
+        if (y + 1 < crf_.height_) val += msg(up_, x, y+1, i);
+        if (x + 1 < crf_.width_)  val += msg(left_, x+1, y, i);
+        if (y != 0)               val += msg(down_, x, y-1, i);
+        if (x != 0)               val += msg(right_, x-1, y, i);
 
-                if (val < min_value) {
-                    min_label = i;
-                    min_value = val;
-                }
-            }
-
-            result[idx(x, y)] = min_label;
+        if (val < min_value) {
+            min_label = i;
+            min_value = val;
         }
     }
+    return min_label;
+}
 
-    return result;
 }
