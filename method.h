@@ -4,6 +4,8 @@
 #include "crf.h"
 #include "util.h"
 
+#include <tuple>
+
 namespace infer {
 
 /**
@@ -28,7 +30,7 @@ public:
     /**
      * Get the energy of the current assignment
      */
-    virtual float get_energy() const;
+    virtual std::tuple<float, float> get_energy() const;
 
     /**
      * Get the label of the specified node

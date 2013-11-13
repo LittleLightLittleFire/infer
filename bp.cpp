@@ -92,6 +92,8 @@ void bp::run(const unsigned iterations) {
                 send_msg(crf_, msg(up_,   x, y+1), msg(down_, x, y-1), msg(left_,  x+1, y), crf_.unary(x, y), msg(left_, x, y),  x, y, x-1, y);
             }
         }
+
+        // TODO: propagate energy of right and bottom edges
     }
 }
 

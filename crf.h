@@ -22,12 +22,13 @@ public:
 
     const unsigned width_, height_, labels_;
     const type type_;
-    const float lambda_;
 
+    const std::vector<float> unary_;
+
+    const float lambda_;
     const float trunc_;
 
 private:
-    const std::vector<float> unary_;
     const std::vector<float> pairwise_;
 
     const indexer idx_;

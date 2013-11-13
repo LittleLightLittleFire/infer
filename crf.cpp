@@ -9,9 +9,9 @@ crf::crf(const unsigned width, const unsigned height, const unsigned labels, con
     , height_(height)
     , labels_(labels)
     , type_(type::ARRAY)
+    , unary_(unary)
     , lambda_(lambda)
     , trunc_(0)
-    , unary_(unary)
     , pairwise_(pairwise)
     , idx_(width_, height_), ndx_(width_, height_, labels_) {
 }
@@ -21,9 +21,9 @@ crf::crf(const unsigned width, const unsigned height, const unsigned labels, con
     , height_(height)
     , labels_(labels)
     , type_(norm == 1 ? type::L1 : type::L2)
+    , unary_(unary)
     , lambda_(lambda)
     , trunc_(trunc)
-    , unary_(unary)
     , pairwise_()
     , idx_(width_, height_), ndx_(width_, height_, labels_) {
 }

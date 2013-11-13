@@ -1,6 +1,6 @@
 #include "util.h"
-#include "crf.h"
 #include "bp.h"
+#include "qp.h"
 
 #include <algorithm>
 #include <iostream>
@@ -9,7 +9,7 @@
 #include "lodepng.h"
 
 namespace {
-    const unsigned max_iter = 10;
+    const unsigned max_iter = 2;
     const bool sync = true;
 
     const float lambda = 20;
@@ -65,18 +65,23 @@ int main(int argc, char *argv[]) {
 
     // create the grid CRF with the specified size
     infer::crf crf(width, height, labels, unary, lambda, 1, smooth_trunc);
-    infer::bp bp(crf, sync);
+    //infer::bp method(crf, sync);
+    infer::qp method(crf);
+
+    auto energy = method.get_energy();
+    std::cout << "initial" << " " << std::get<0>(energy) + std::get<1>(energy) << " " << std::get<0>(energy) << " " << std::get<1>(energy) << std::endl;
 
     // run for 10 iterations
     for (unsigned i = 0; i < max_iter; ++i) {
-        bp.run(1);
-        std::cout << i << " " << bp.get_energy() << std::endl;
+        method.run(1);
+        auto energy = method.get_energy();
+        std::cout << i << " " << std::get<0>(energy) + std::get<1>(energy) << " " << std::get<0>(energy) << " " << std::get<1>(energy) << std::endl;
     }
 
     // convert the results into an image
     std::vector<unsigned char> image(width * height * 4);
     for (unsigned i = 0; i < width * height; ++i) {
-        const float val = bp.get_label(i % width, i / width) * scale;
+        const float val = method.get_label(i % width, i / width) * scale;
         image[i * 4] = image[i * 4 + 1] = image[i * 4 + 2] = val;
         image[i * 4 + 3] = 255; // alpha channel
     }
