@@ -41,10 +41,10 @@ float crf::pairwise(const unsigned x1, const unsigned y1, const float l1, const 
         case type::ARRAY:
             return lambda_ * pairwise_[l2 * labels_ + l1];
         case type::L1:
-            return lambda_ * std::abs(static_cast<float>(l1) - static_cast<float>(l2));
+            return lambda_ * std::min(std::abs(static_cast<float>(l1) - static_cast<float>(l2)), trunc_);
         case type::L2:
             const float tmp = std::abs(static_cast<float>(l1) - static_cast<float>(l2));
-            return lambda_ * tmp * tmp;
+            return lambda_ * std::min(tmp * tmp, trunc_);
     }
 }
 
