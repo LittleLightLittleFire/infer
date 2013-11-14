@@ -81,19 +81,42 @@ void bp::run(const unsigned iterations) {
     for (unsigned i = 0; i < iterations; ++i) {
         ++current_iter;
 
-        // do not use i for when doing the checkboard update pattern
-        for (unsigned y = 1; y < crf_.height_ - 1; ++y) {
-            for (unsigned x = ((y + current_iter) % 2) + 1; x < crf_.width_ - 1; x += 2) {
-                // send messages in each direction
-                //        m1                       m2                  m3                   pot               out
-                send_msg(crf_, msg(up_,   x, y+1), msg(left_, x+1, y), msg(right_, x-1, y), crf_.unary(x, y), msg(up_, x, y),    x, y, x, y-1);
-                send_msg(crf_, msg(down_, x, y-1), msg(left_, x+1, y), msg(right_, x-1, y), crf_.unary(x, y), msg(down_, x, y),  x, y, x, y+1);
-                send_msg(crf_, msg(up_,   x, y+1), msg(down_, x, y-1), msg(right_, x-1, y), crf_.unary(x, y), msg(right_, x, y), x, y, x+1, y);
-                send_msg(crf_, msg(up_,   x, y+1), msg(down_, x, y-1), msg(left_,  x+1, y), crf_.unary(x, y), msg(left_, x, y),  x, y, x-1, y);
+        if (synchronous_) {
+            // do not use i for when doing the checkboard update pattern
+            for (unsigned y = 1; y < crf_.height_ - 1; ++y) {
+                for (unsigned x = ((y + current_iter) % 2) + 1; x < crf_.width_ - 1; x += 2) {
+                    // send messages in each direction
+                    //        m1                       m2                  m3                   pot               out
+                    send_msg(crf_, msg(up_,   x, y+1), msg(left_, x+1, y), msg(right_, x-1, y), crf_.unary(x, y), msg(up_, x, y),    x, y, x, y-1);
+                    send_msg(crf_, msg(down_, x, y-1), msg(left_, x+1, y), msg(right_, x-1, y), crf_.unary(x, y), msg(down_, x, y),  x, y, x, y+1);
+                    send_msg(crf_, msg(up_,   x, y+1), msg(down_, x, y-1), msg(right_, x-1, y), crf_.unary(x, y), msg(right_, x, y), x, y, x+1, y);
+                    send_msg(crf_, msg(up_,   x, y+1), msg(down_, x, y-1), msg(left_,  x+1, y), crf_.unary(x, y), msg(left_, x, y),  x, y, x-1, y);
+                }
+            }
+        } else {
+            const unsigned width = crf_.width_;
+            const unsigned height = crf_.height_;
+
+            // right and left messages
+            for (uint y = 1; y < height - 1; ++y) {
+                for (uint x = 1; x < width - 1; ++x) {
+                    send_msg(crf_, msg(up_,   x, y+1), msg(down_, x, y-1), msg(right_, x-1, y), crf_.unary(x, y), msg(right_, x, y), x, y, x+1, y);
+                }
+                for (uint x = width - 1; x-- > 1; ) {
+                    send_msg(crf_, msg(up_,   x, y+1), msg(down_, x, y-1), msg(left_,  x+1, y), crf_.unary(x, y), msg(left_, x, y),  x, y, x-1, y);
+                }
+            }
+
+            // down and up messages
+            for (uint x = 1; x < width - 1; ++x) {
+                for (uint y = 1; y < height - 1; ++y) {
+                    send_msg(crf_, msg(down_, x, y-1), msg(left_, x+1, y), msg(right_, x-1, y), crf_.unary(x, y), msg(down_, x, y),  x, y, x, y+1);
+                }
+                for (uint y = height - 1; y-- > 1; ) {
+                    send_msg(crf_, msg(up_,   x, y+1), msg(left_, x+1, y), msg(right_, x-1, y), crf_.unary(x, y), msg(up_, x, y),    x, y, x, y-1);
+                }
             }
         }
-
-        // TODO: propagate energy of right and bottom edges
     }
 }
 
