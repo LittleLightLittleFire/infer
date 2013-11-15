@@ -51,7 +51,7 @@ inline void send_msg(const crf &crf_, const float *m1, const float *m2, const fl
     }
 
     // normalise floating point messages to avoid over/underflow
-    const float sum = std::accumulate(out, out + labels, 0.0f) / static_cast<float>(labels);
+    const float sum = out[0];//std::accumulate(out, out + labels, 0.0f) / static_cast<float>(labels);
     std::transform(out, out + labels, out, [sum](const float x){ return x - sum; });
 }
 
@@ -65,8 +65,7 @@ bp::bp(const crf &crf, const bool synchronous)
     , up_(crf_.width_ * crf_.height_ * crf.labels_)
     , down_(crf_.width_ * crf_.height_ * crf.labels_)
     , left_(crf_.width_ * crf_.height_ * crf.labels_)
-    , right_(crf_.width_ * crf_.height_ * crf.labels_)
-    , dummy_(crf_.labels_) {
+    , right_(crf_.width_ * crf_.height_ * crf.labels_) {
 }
 
 float bp::msg(const std::vector<float> &msg, const unsigned x, const unsigned y, const unsigned label) const {
@@ -87,10 +86,10 @@ void bp::run(const unsigned iterations) {
                 for (unsigned x = ((y + current_iter) % 2) + 1; x < crf_.width_ - 1; x += 2) {
                     // send messages in each direction
                     //        m1                       m2                  m3                   pot               out
-                    send_msg(crf_, msg(up_,   x, y+1), msg(left_, x+1, y), msg(right_, x-1, y), crf_.unary(x, y), msg(up_, x, y),    x, y, x, y-1);
-                    send_msg(crf_, msg(down_, x, y-1), msg(left_, x+1, y), msg(right_, x-1, y), crf_.unary(x, y), msg(down_, x, y),  x, y, x, y+1);
                     send_msg(crf_, msg(up_,   x, y+1), msg(down_, x, y-1), msg(right_, x-1, y), crf_.unary(x, y), msg(right_, x, y), x, y, x+1, y);
                     send_msg(crf_, msg(up_,   x, y+1), msg(down_, x, y-1), msg(left_,  x+1, y), crf_.unary(x, y), msg(left_, x, y),  x, y, x-1, y);
+                    send_msg(crf_, msg(down_, x, y-1), msg(left_, x+1, y), msg(right_, x-1, y), crf_.unary(x, y), msg(down_, x, y),  x, y, x, y+1);
+                    send_msg(crf_, msg(up_,   x, y+1), msg(left_, x+1, y), msg(right_, x-1, y), crf_.unary(x, y), msg(up_, x, y),    x, y, x, y-1);
                 }
             }
         } else {
@@ -98,21 +97,21 @@ void bp::run(const unsigned iterations) {
             const unsigned height = crf_.height_;
 
             // right and left messages
-            for (uint y = 1; y < height - 1; ++y) {
-                for (uint x = 1; x < width - 1; ++x) {
+            for (unsigned y = 1; y < height - 1; ++y) {
+                for (unsigned x = 1; x < width - 1; ++x) {
                     send_msg(crf_, msg(up_,   x, y+1), msg(down_, x, y-1), msg(right_, x-1, y), crf_.unary(x, y), msg(right_, x, y), x, y, x+1, y);
                 }
-                for (uint x = width - 1; x-- > 1; ) {
+                for (unsigned x = width - 1; x-- > 1; ) {
                     send_msg(crf_, msg(up_,   x, y+1), msg(down_, x, y-1), msg(left_,  x+1, y), crf_.unary(x, y), msg(left_, x, y),  x, y, x-1, y);
                 }
             }
 
             // down and up messages
-            for (uint x = 1; x < width - 1; ++x) {
-                for (uint y = 1; y < height - 1; ++y) {
+            for (unsigned x = 1; x < width - 1; ++x) {
+                for (unsigned y = 1; y < height - 1; ++y) {
                     send_msg(crf_, msg(down_, x, y-1), msg(left_, x+1, y), msg(right_, x-1, y), crf_.unary(x, y), msg(down_, x, y),  x, y, x, y+1);
                 }
-                for (uint y = height - 1; y-- > 1; ) {
+                for (unsigned y = height - 1; y-- > 1; ) {
                     send_msg(crf_, msg(up_,   x, y+1), msg(left_, x+1, y), msg(right_, x-1, y), crf_.unary(x, y), msg(up_, x, y),    x, y, x, y-1);
                 }
             }
@@ -124,6 +123,8 @@ unsigned bp::get_label(const unsigned x, const unsigned y) const {
     // the label of the node is the label with the lowest energy
     unsigned min_label = 0;
     float min_value = std::numeric_limits<float>::max();
+
+
 
     for (unsigned i = 0; i < crf_.labels_; ++i) {
         float val = crf_.unary(x, y, i);
