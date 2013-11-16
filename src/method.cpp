@@ -32,4 +32,10 @@ std::tuple<float, float> method::get_energy() const {
     return std::make_tuple(unary_energy, pairwise_energy);
 }
 
+/**
+ * TODO: remove when gcc is updated
+ */
+method::~method() {
+}
+
 }

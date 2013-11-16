@@ -37,5 +37,3 @@ crf::~crf() {
 
 }
 }
-
-#endif // INFER_CUDA_CRF_H

@@ -36,7 +36,10 @@ public:
      */
     virtual unsigned get_label(const unsigned x, const unsigned y) const = 0;
 
-    virtual ~method() = default;
+    /**
+     * TODO: change back to default when gcc is updated, gcc 4.7 has a bug with virtual destructors being defaulted
+     */
+    virtual ~method();
 
     // disable copy and copy assignment
     method(const method &) = delete;
