@@ -1,6 +1,6 @@
 # Build options
 LIBRARY = libinfer.a
-GPU_SUPPORT = true
+GPU_SUPPORT =
 
 OPT = -O2
 
