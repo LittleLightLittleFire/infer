@@ -3,8 +3,6 @@
 
 #include "crf.h"
 
-#include <tuple>
-
 namespace infer {
 
 /**
@@ -27,14 +25,24 @@ public:
     virtual void run(const unsigned iterations) = 0;
 
     /**
-     * Get the energy of the current assignment
+     * Get the unary energy of the current assignment
      */
-    virtual std::tuple<float, float> get_energy() const;
+    virtual float unary_energy() const;
+
+    /**
+     * Get the pairwise energy of the current assignment
+     */
+    virtual float pairwise_energy() const;
 
     /**
      * Get the label of the specified node
      */
     virtual unsigned get_label(const unsigned x, const unsigned y) const = 0;
+
+    /**
+     * Get results, equivalent to calling get_label for every pixel
+     */
+    virtual std::vector<unsigned> get_label() const;
 
     /**
      * TODO: change back to default when gcc is updated, gcc 4.7 has a bug with virtual destructors being defaulted

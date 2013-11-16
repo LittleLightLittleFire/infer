@@ -4,6 +4,8 @@
 #include "mst.h"
 #include "trbp.h"
 
+#include "cuda/bp.h"
+
 #include <algorithm>
 #include <iostream>
 #include <vector>
@@ -66,27 +68,37 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    /*
     // create the grid CRF with the specified size
     infer::crf crf(width, height, labels, unary, lambda, 1, smooth_trunc);
     //infer::bp method(crf, sync);
     //infer::qp method(crf);
     infer::trbp method(crf, infer::sample_edge_apparence(width, height, samples), sync);
     //infer::trbp method(crf, std::vector<float>(width * height * 2, 1), sync);
+    */
+    infer::cuda::crf crf(width, height, labels, unary, lambda, 1, smooth_trunc);
+    infer::cuda::bp method(crf);
 
-    auto energy = method.get_energy();
-    std::cout << "initial" << " " << std::get<0>(energy) + std::get<1>(energy) << " " << std::get<0>(energy) << " " << std::get<1>(energy) << std::endl;
+    {
+        const float unary_energy = method.unary_energy();
+        const float pairwise_energy = method.pairwise_energy();
+        std::cout << "initial" << " " << unary_energy + pairwise_energy << " " << unary_energy << " " << pairwise_energy << std::endl;
+    }
 
     // run for 10 iterations
     for (unsigned i = 0; i < max_iter; ++i) {
         method.run(1);
-        auto energy = method.get_energy();
-        std::cout << i << " " << std::get<0>(energy) + std::get<1>(energy) << " " << std::get<0>(energy) << " " << std::get<1>(energy) << std::endl;
+        const float unary_energy = method.unary_energy();
+        const float pairwise_energy = method.pairwise_energy();
+        std::cout << i << " " << unary_energy + pairwise_energy << " " << unary_energy << " " << pairwise_energy << std::endl;
     }
 
     // convert the results into an image
     std::vector<unsigned char> image(width * height * 4);
+    std::vector<unsigned> result = method.get_result();
+
     for (unsigned i = 0; i < width * height; ++i) {
-        const float val = method.get_label(i % width, i / width) * scale;
+        const float val = result[i] * scale;
         image[i * 4] = image[i * 4 + 1] = image[i * 4 + 2] = val;
         image[i * 4 + 3] = 255; // alpha channel
     }
