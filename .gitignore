@@ -2,5 +2,6 @@
 *~
 *.o
 *.png
+*.a
 
 stereo

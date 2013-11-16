@@ -1,37 +1,45 @@
-CC = clang++
-CFLAGS = -g -O2 -Wextra -std=c++11
-LDFLAGS =
-SRCS = stereo.cpp lodepng.cpp crf.cpp method.cpp bp.cpp qp.cpp trbp.cpp mst.cpp
-TARGETS = stereo
+include config.mk
 
-OBJS = $(SRCS:.cpp=.o)
+# Makefile for the static library and examples
 
-all: $(TARGETS)
+# CPU sources
+SRCS = crf.cpp method.cpp bp.cpp qp.cpp trbp.cpp mst.cpp
+
+# GPU sources
+CUDA_SRCS =
+
+LIBRARY_OBJS = $(SRCS:.cpp=.o)
+CUDA_OBJS = $(CUDA_SRCS:.cu=.cuo)
+
+ifdef GPU_SUPPORT
+	LIBRARY_OBJS += $(CUDA_OBJS)
+endif
+
+all: $(LIBRARY)
 
 .PHONEY: test clean
 
-$(TARGETS): $(OBJS)
-	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
+$(LIBRARY): $(LIBRARY_OBJS)
+	ar rcs $@ $^
 
-.cpp.o:
-	$(CC) $(CFLAGS) $(LDFLAGS) -c $< -o $@
+%.o: %.cpp
+	$(CC) $(CFLAGS) -c $< -o $@
 
-test: stereo
-	mkdir -p out
-	./stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
-
-pairs: stereo
-	mkdir -p out
-	./stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
-	./stereo 20 8 data/venus/imL.png data/venus/imR.png out/venus.png
-	./stereo 60 4 data/cones/imL.png data/cones/imR.png out/cones.png
-	./stereo 60 4 data/teddy/imL.png data/teddy/imR.png out/teddy.png
+%.cuo: %.cu
+	$(CUDA) $(CUDA_FLAGS) -c $< -o $@
 
 docs:
 	doxygen
 
+examples/%: examples/%.cpp $(LIBRARY)
+	cd examples && make $*
+
+test: $(LIBRARY)
+	cd examples && make test
+
 clean:
 	-rm *.o
-	-rm $(TARGETS)
+	-rm $(LIBRARY)
+	-cd examples && make clean
 	-rm -r out/
 	-rm -r docs/

@@ -1,6 +1,8 @@
 #include "util.h"
 #include "bp.h"
 #include "qp.h"
+#include "mst.h"
+#include "trbp.h"
 
 #include <algorithm>
 #include <iostream>
@@ -9,8 +11,9 @@
 #include "lodepng.h"
 
 namespace {
-    const unsigned max_iter = 2;
-    const bool sync = true;
+    const unsigned max_iter = 50;
+    const unsigned samples = 200;
+    const bool sync = false;
 
     const float lambda = 20;
     const float smooth_trunc = 2;
@@ -66,7 +69,9 @@ int main(int argc, char *argv[]) {
     // create the grid CRF with the specified size
     infer::crf crf(width, height, labels, unary, lambda, 1, smooth_trunc);
     //infer::bp method(crf, sync);
-    infer::qp method(crf);
+    //infer::qp method(crf);
+    infer::trbp method(crf, infer::sample_edge_apparence(width, height, samples), sync);
+    //infer::trbp method(crf, std::vector<float>(width * height * 2, 1), sync);
 
     auto energy = method.get_energy();
     std::cout << "initial" << " " << std::get<0>(energy) + std::get<1>(energy) << " " << std::get<0>(energy) << " " << std::get<1>(energy) << std::endl;
