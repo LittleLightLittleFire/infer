@@ -8,7 +8,7 @@
 namespace infer {
 
 /**
- * Max product belief propagation
+ * Belief propagation
  */
 class bp : public method {
 protected:
@@ -16,7 +16,12 @@ protected:
     unsigned current_iter;
     const indexer ndx_;
 
-    /** Messages coming into the node */
+    /**
+     * Messages coming into the node
+     *
+     * Draw a dot and draw four arrows coming into the dot, one each of the neighbours
+     * The arrow pointing up is in up_, the arrow pointing down is in down_, etc etc
+     */
     std::vector<float> up_, down_, left_, right_;
 
 public:
