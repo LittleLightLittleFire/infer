@@ -2,7 +2,6 @@
 #define INFER_METHOD_H
 
 #include "crf.h"
-#include "util.h"
 
 #include <tuple>
 
