@@ -2,6 +2,8 @@ include config.mk
 
 # Makefile for the static library and examples
 
+CFLAGS += -Iinclude
+
 # CPU sources
 SRCS = crf.cpp method.cpp bp.cpp qp.cpp trbp.cpp mst.cpp
 
@@ -22,10 +24,10 @@ all: $(LIBRARY)
 $(LIBRARY): $(LIBRARY_OBJS)
 	ar rcs $@ $^
 
-%.o: %.cpp
+%.o: src/%.cpp
 	$(CC) $(CFLAGS) -c $< -o $@
 
-%.cuo: %.cu
+%.cuo: src/%.cu
 	$(CUDA) $(CUDA_FLAGS) -c $< -o $@
 
 docs:

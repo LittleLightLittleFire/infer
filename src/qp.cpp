@@ -13,27 +13,38 @@ qp::qp(const crf &crf)
     : method(crf)
     , ndx_(crf_.width_, crf_.height_, crf_.labels_)
     , q_(crf_.unary_.size())
-    , mu1_(crf_.unary_.size())
+    , mu1_(crf_.unary_)
     , mu2_(crf_.unary_.size())
     , mu_(&mu1_[0])
     , mu_next_(&mu2_[0]) {
 
-    // initalise with MAP
+    //std::transform(std::begin(mu1_), std::end(mu1_), std::begin(mu1_), [this](const float x) { return x / scale_; });
+
     for (unsigned y = 1; y < crf_.height_ - 1; ++y) {
         for (unsigned x = 1; x < crf_.width_ - 1; ++x) {
             float *const begin = mu_ + ndx_(x,y);
-            float *const end = mu_ + ndx_(x,y) + crf_.labels_;;
+            float *const end = begin + crf_.labels_;;
 
             float *const min = std::min_element(begin, end);
             float *const max = std::max_element(begin, end);
 
-            if (*max != 0) {
-                for (float *i = begin; i != end; ++i) {
-                    *i = (i == min) ? 1 : 0;
-                }
-            } else {
-                *begin = 1;
+            float total = 0;
+            for (float *i = begin; i != end; ++i) {
+                *i = std::exp(-*i - *max);
+                total += *i;
             }
+
+            for (float *i = begin; i != end; ++i) {
+                *i /= total;
+            }
+
+            //if (*max != 0) {
+                //for (float *i = begin; i != end; ++i) {
+                    //*i = (i == min) ? 1 : 0;
+                //}
+            //} else {
+                //*begin = 1;
+            //}
         }
     }
 
@@ -59,10 +70,10 @@ void qp::run(const unsigned iterations) {
                     pair(x, y-1);
                     pair(x, y+1);
 
-                    //std::cout << x << " " << y << " " << grad * 2 << " " << crf_.unary(x,y,i) << std::endl;
                     grad *= 2;
                     grad += crf_.unary(x, y, i);
                     q_[ndx_(x, y) + i] = grad;
+                    //std::cout << q_[ndx_(x, y) + i] << std::endl;
                 }
             }
         }
@@ -76,17 +87,24 @@ void qp::run(const unsigned iterations) {
 
                 for (unsigned i = 0; i < crf_.labels_; ++i) {
                     const unsigned idx = ndx_(x, y) + i;
-                    pair_sum += mu_[idx] * q_[idx];
+                    //pair_sum += mu_[idx] * q_[idx];
+                    mu_next_[idx] = mu_[idx] * q_[idx];
                 }
 
-                for (unsigned i = 0; i < crf_.labels_; ++i) {
-                    const unsigned idx = ndx_(x, y) + i;
-                    if (pair_sum != 0) {
-                        mu_next_[idx] = (mu_[idx] * q_[idx]) / pair_sum;
-                    } else {
-                        //std::cout << x << " " << y << " " << i << std::endl;
-                    }
-                    //std::cout << x << " " << y << " " << mu_next_[idx] << " " << pair_sum << std::endl;
+                float *const begin = mu_next_ + ndx_(x,y);
+                float *const end = begin + crf_.labels_;;
+
+                float *const min = std::min_element(begin, end);
+                float *const max = std::max_element(begin, end);
+
+                float total = 0;
+                for (float *i = begin; i != end; ++i) {
+                    *i = std::exp(*i - *max);
+                    total += *i;
+                }
+
+                for (float *i = begin; i != end; ++i) {
+                    *i /= total;
                 }
             }
         }
@@ -98,27 +116,14 @@ void qp::run(const unsigned iterations) {
 }
 
 unsigned qp::get_label(const unsigned x, const unsigned y) const {
-    //unsigned min_label = 0;
-    //float min_value = std::numeric_limits<float>::max();
-
-    ////std::cout << "set: " << x << " " << y << std::endl;
-    //for (unsigned i = 0; i < crf_.labels_; ++i) {
-        //float val = mu_[ndx_(x, y) + i];
-
-        //if (val < min_value) {
-            //min_label = i;
-            //min_value = val;
-        //}
-    //}
-    ////std::cout << "set: " << x << " " << y << " " << std::accumulate(&mu_[ndx_(x,y)], &mu_[ndx_(x,y) + crf_.labels_], 0.0f) << std::endl;
-
-    //return min_label;
+    //std::cout << "set: " << x << " " << y << " " << std::accumulate(&mu_[ndx_(x,y)], &mu_[ndx_(x,y) + crf_.labels_], 0.0f) << std::endl;
 
     unsigned max_label = 0;
     float max_value = std::numeric_limits<float>::lowest();
 
     for (unsigned i = 0; i < crf_.labels_; ++i) {
         float val = mu_[ndx_(x, y) + i];
+        //std::cout << x << " " << y << " " << i << " " << val << std::endl;
 
         if (val > max_value) {
             max_label = i;

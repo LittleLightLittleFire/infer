@@ -1,6 +1,6 @@
 include ../config.mk
 
-CFLAGS += -I../
+CFLAGS += -I../include
 LDFLAGS += -L../ -linfer
 
 TARGETS = stereo
