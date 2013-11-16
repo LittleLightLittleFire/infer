@@ -17,30 +17,30 @@ inline void send_msg(const crf &crf_
 
     switch (crf_.type_) {
         case crf::type::L1:
-            //// use the O(n) algorithm from Pedro F. Felzenszwalb and Daniel P. Huttenlocher (2006): Efficient Belief Propagation for Early Vision
-            //// compute the new message partially, deal with the pairwise term later
-            //for (unsigned i = 0; i < labels; ++i) {
-                //out[i] = m1[i] + m2[i] + m3[i] + pot[i];
-            //}
+            // use the O(n) algorithm from Pedro F. Felzenszwalb and Daniel P. Huttenlocher (2006): Efficient Belief Propagation for Early Vision
+            // compute the new message partially, deal with the pairwise term later
+            for (unsigned i = 0; i < labels; ++i) {
+                out[i] = pot[i] + m1[i] * rm1 + m2[i] * rm2 + m3[i] * rm3 - opp[i] * (1 - ropp);
+            }
 
-            //{ // truncate
-                //// compute the minimum to truncate with
-                //const float trunc = crf_.trunc_ * crf_.lambda_;
-                //const float scale = crf_.lambda_;
+            { // truncate
+                // compute the minimum to truncate with
+                const float trunc = crf_.trunc_ * crf_.lambda_ * (1 / ropp);
+                const float scale = crf_.lambda_ * (1 / ropp);
 
-                //const float trunc_min = trunc + *std::min_element(out, out + labels);
+                const float trunc_min = trunc + *std::min_element(out, out + labels);
 
-                //for (unsigned i = 1; i < labels; ++i) {
-                    //out[i] = std::min(out[i - 1] + scale, out[i]);
-                //}
+                for (unsigned i = 1; i < labels; ++i) {
+                    out[i] = std::min(out[i - 1] + scale, out[i]);
+                }
 
-                //for (unsigned i = labels - 1; i-- > 0; ) {
-                    //out[i] = std::min(out[i + 1] + scale, out[i]);
-                //}
+                for (unsigned i = labels - 1; i-- > 0; ) {
+                    out[i] = std::min(out[i + 1] + scale, out[i]);
+                }
 
-                //std::transform(out, out + labels, out, [trunc_min](const float x){ return std::min(x, trunc_min); });
-            //}
-            //break;
+                std::transform(out, out + labels, out, [trunc_min](const float x){ return std::min(x, trunc_min); });
+            }
+            break;
         case crf::type::L2: // TODO: optimised L2 norm algorithm
         case crf::type::ARRAY:
         default:
