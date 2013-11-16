@@ -16,7 +16,7 @@ protected:
     unsigned current_iter;
     const indexer ndx_;
 
-    /** Messages coming out of */
+    /** Messages coming into the node */
     std::vector<float> up_, down_, left_, right_;
 
 public:

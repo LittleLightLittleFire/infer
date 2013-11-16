@@ -9,6 +9,7 @@ namespace {
 
 inline void send_msg(const crf &crf_, const float *m1, const float *m2, const float *m3, const float *pot, float *out, const unsigned x, const unsigned y, const unsigned xt, const unsigned yt) {
     const unsigned labels = crf_.labels_;
+
     switch (crf_.type_) {
         case crf::type::L1:
             // use the O(n) algorithm from Pedro F. Felzenszwalb and Daniel P. Huttenlocher (2006): Efficient Belief Propagation for Early Vision
@@ -28,13 +29,11 @@ inline void send_msg(const crf &crf_, const float *m1, const float *m2, const fl
                     out[i] = std::min(out[i - 1] + scale, out[i]);
                 }
 
-                // second pass, same th but with the list reversed
-                for (unsigned i = labels - 2; i-- > 0; ) {
+                for (unsigned i = labels - 1; i-- > 0; ) {
                     out[i] = std::min(out[i + 1] + scale, out[i]);
                 }
 
                 std::transform(out, out + labels, out, [trunc_min](const float x){ return std::min(x, trunc_min); });
-
             }
             break;
         case crf::type::L2: // TODO: optimised L2 norm algorithm
@@ -51,8 +50,8 @@ inline void send_msg(const crf &crf_, const float *m1, const float *m2, const fl
     }
 
     // normalise floating point messages to avoid over/underflow
-    const float sum = out[0];//std::accumulate(out, out + labels, 0.0f) / static_cast<float>(labels);
-    std::transform(out, out + labels, out, [sum](const float x){ return x - sum; });
+    const float first = out[0];
+    std::transform(out, out + labels, out, [first](const float x){ return x - first; });
 }
 
 }
@@ -84,12 +83,12 @@ void bp::run(const unsigned iterations) {
             // do not use i for when doing the checkboard update pattern
             for (unsigned y = 1; y < crf_.height_ - 1; ++y) {
                 for (unsigned x = ((y + current_iter) % 2) + 1; x < crf_.width_ - 1; x += 2) {
-                    // send messages in each direction
+                    // send messages out of x,y
                     //        m1                       m2                  m3                   pot               out
-                    send_msg(crf_, msg(up_,   x, y+1), msg(down_, x, y-1), msg(right_, x-1, y), crf_.unary(x, y), msg(right_, x, y), x, y, x+1, y);
-                    send_msg(crf_, msg(up_,   x, y+1), msg(down_, x, y-1), msg(left_,  x+1, y), crf_.unary(x, y), msg(left_, x, y),  x, y, x-1, y);
-                    send_msg(crf_, msg(down_, x, y-1), msg(left_, x+1, y), msg(right_, x-1, y), crf_.unary(x, y), msg(down_, x, y),  x, y, x, y+1);
-                    send_msg(crf_, msg(up_,   x, y+1), msg(left_, x+1, y), msg(right_, x-1, y), crf_.unary(x, y), msg(up_, x, y),    x, y, x, y-1);
+                    send_msg(crf_, msg(up_,   x, y), msg(down_, x, y), msg(right_, x, y), crf_.unary(x, y), msg(right_, x+1, y), x, y, x+1, y);
+                    send_msg(crf_, msg(up_,   x, y), msg(down_, x, y), msg(left_,  x, y), crf_.unary(x, y), msg(left_,  x-1, y), x, y, x-1, y);
+                    send_msg(crf_, msg(down_, x, y), msg(left_, x, y), msg(right_, x, y), crf_.unary(x, y), msg(down_,  x, y+1), x, y, x, y+1);
+                    send_msg(crf_, msg(up_,   x, y), msg(left_, x, y), msg(right_, x, y), crf_.unary(x, y), msg(up_,    x, y-1), x, y, x, y-1);
                 }
             }
         } else {
@@ -97,22 +96,22 @@ void bp::run(const unsigned iterations) {
             const unsigned height = crf_.height_;
 
             // right and left messages
-            for (unsigned y = 1; y < height - 1; ++y) {
-                for (unsigned x = 1; x < width - 1; ++x) {
-                    send_msg(crf_, msg(up_,   x, y+1), msg(down_, x, y-1), msg(right_, x-1, y), crf_.unary(x, y), msg(right_, x, y), x, y, x+1, y);
+            for (unsigned y = 0; y < height; ++y) {
+                for (unsigned x = 0; x < width - 1; ++x) {
+                    send_msg(crf_, msg(up_,   x, y), msg(down_, x, y), msg(right_, x, y), crf_.unary(x, y), msg(right_, x+1, y), x, y, x+1, y);
                 }
-                for (unsigned x = width - 1; x-- > 1; ) {
-                    send_msg(crf_, msg(up_,   x, y+1), msg(down_, x, y-1), msg(left_,  x+1, y), crf_.unary(x, y), msg(left_, x, y),  x, y, x-1, y);
+                for (unsigned x = width - 1; x > 0; --x) {
+                    send_msg(crf_, msg(up_,   x, y), msg(down_, x, y), msg(left_,  x, y), crf_.unary(x, y), msg(left_,  x-1, y), x, y, x-1, y);
                 }
             }
 
             // down and up messages
-            for (unsigned x = 1; x < width - 1; ++x) {
-                for (unsigned y = 1; y < height - 1; ++y) {
-                    send_msg(crf_, msg(down_, x, y-1), msg(left_, x+1, y), msg(right_, x-1, y), crf_.unary(x, y), msg(down_, x, y),  x, y, x, y+1);
+            for (unsigned x = 0; x < width; ++x) {
+                for (unsigned y = 0; y < height - 1; ++y) {
+                    send_msg(crf_, msg(down_, x, y), msg(left_, x, y), msg(right_, x, y), crf_.unary(x, y), msg(down_,  x, y+1), x, y, x, y+1);
                 }
-                for (unsigned y = height - 1; y-- > 1; ) {
-                    send_msg(crf_, msg(up_,   x, y+1), msg(left_, x+1, y), msg(right_, x-1, y), crf_.unary(x, y), msg(up_, x, y),    x, y, x, y-1);
+                for (unsigned y = height - 1; y > 0; --y) {
+                    send_msg(crf_, msg(up_,   x, y), msg(left_, x, y), msg(right_, x, y), crf_.unary(x, y), msg(up_,    x, y-1), x, y, x, y-1);
                 }
             }
         }
@@ -124,16 +123,12 @@ unsigned bp::get_label(const unsigned x, const unsigned y) const {
     unsigned min_label = 0;
     float min_value = std::numeric_limits<float>::max();
 
-
-
     for (unsigned i = 0; i < crf_.labels_; ++i) {
-        float val = crf_.unary(x, y, i);
-
-        // check the bounds first
-        if (y + 1 < crf_.height_) val += msg(up_, x, y+1, i);
-        if (x + 1 < crf_.width_)  val += msg(left_, x+1, y, i);
-        if (y != 0)               val += msg(down_, x, y-1, i);
-        if (x != 0)               val += msg(right_, x-1, y, i);
+        const float val = crf_.unary(x, y, i)
+                        + msg(up_, x, y, i)
+                        + msg(left_, x, y, i)
+                        + msg(down_, x, y, i)
+                        + msg(right_, x, y, i);
 
         if (val < min_value) {
             min_label = i;
