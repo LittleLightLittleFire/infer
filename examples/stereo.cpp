@@ -69,14 +69,14 @@ int main(int argc, char *argv[]) {
     }
 
     // create the grid CRF with the specified size
-    infer::crf crf(width, height, labels, unary, lambda, 1, smooth_trunc);
+    //infer::crf crf(width, height, labels, unary, lambda, 1, smooth_trunc);
     //infer::bp method(crf, sync);
     //infer::qp method(crf);
-    infer::trbp method(crf, infer::sample_edge_apparence(width, height, samples), sync);
+    //infer::trbp method(crf, infer::sample_edge_apparence(width, height, samples), sync);
     //infer::trbp method(crf, std::vector<float>(width * height * 2, 1), sync);
 
-    //infer::cuda::crf crf(width, height, labels, unary, lambda, 1, smooth_trunc);
-    //infer::cuda::bp method(crf);
+    infer::cuda::crf crf(width, height, labels, unary, lambda, 1, smooth_trunc);
+    infer::cuda::bp method(crf);
 
     {
         const float unary_energy = method.unary_energy();

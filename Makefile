@@ -9,7 +9,7 @@ CUDA_CFLAGS += -Iinclude
 SRCS = crf.cpp method.cpp bp.cpp qp.cpp trbp.cpp mst.cpp
 
 # GPU sources
-CUDA_SRCS = crf.cu method.cu bp.cu
+CUDA_SRCS = crf.cu method.cu bp.cu util.cu
 
 LIBRARY_OBJS = $(SRCS:.cpp=.o)
 CUDA_OBJS = $(CUDA_SRCS:.cu=.cuo)

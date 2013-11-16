@@ -1,4 +1,5 @@
 #include "cuda/crf.h"
+#include "cuda/util.h"
 
 #include <cuda.h>
 
@@ -15,7 +16,7 @@ crf::crf(const unsigned width, const unsigned height, const unsigned labels, con
     , trunc_(trunc)
     , dev_pairwise_(0) {
 
-    // TODO:
+    cuda_check(cudaMalloc(&dev_unary_, width * height * labels));
 }
 
 crf::crf(const unsigned width, const unsigned height, const unsigned labels, const std::vector<float> unary, const float lambda, const std::vector<float> pairwise)
@@ -28,11 +29,16 @@ crf::crf(const unsigned width, const unsigned height, const unsigned labels, con
     , trunc_(0)
     , dev_pairwise_(0) {
 
-    // TODO:
+    cuda_check(cudaMalloc(&dev_unary_, width * height * labels));
+    cuda_check(cudaMalloc(&dev_pairwise_, labels * labels));
 }
 
 crf::~crf() {
-    // TODO:
+    cudaFree(dev_unary_);
+
+    if (dev_pairwise_) {
+        cudaFree(dev_pairwise_);
+    }
 }
 
 }
