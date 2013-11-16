@@ -1,7 +1,10 @@
 include ../config.mk
 
 CFLAGS += -I../include
-LDFLAGS += -L../ -linfer
+
+# the order the linker searches for libraries is important, we specify where
+# libinfer's dependencies after we link it
+LDFLAGS := -L../ -linfer $(LDFLAGS)
 
 TARGETS = stereo
 
