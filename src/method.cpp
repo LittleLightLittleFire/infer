@@ -35,7 +35,7 @@ float method::pairwise_energy() const {
     return pairwise_energy;
 }
 
-std::vector<unsigned> method::get_label() const {
+std::vector<unsigned> method::get_result() const {
     std::vector<unsigned> result;
     for (unsigned y = 0; y < crf_.height_; ++y) {
         for (unsigned x = 0; x < crf_.width_; ++x) {
@@ -44,6 +44,10 @@ std::vector<unsigned> method::get_label() const {
     }
 
     return result;
+}
+
+/** TODO: remove once gcc is updated, clang needs this method to link properly */
+method::~method() {
 }
 
 }

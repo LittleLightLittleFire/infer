@@ -42,7 +42,7 @@ public:
     /**
      * Get results, equivalent to calling get_label for every pixel
      */
-    virtual std::vector<unsigned> get_label() const;
+    virtual std::vector<unsigned> get_result() const;
 
     /**
      * TODO: change back to default when gcc is updated, gcc 4.7 has a bug with virtual destructors being defaulted
