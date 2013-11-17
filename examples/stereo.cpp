@@ -79,7 +79,8 @@ int main(int argc, char *argv[]) {
 
     infer::cuda::crf gpu_crf(width, height, labels, unary, lambda, 1, smooth_trunc);
     //infer::cuda::bp method(gpu_crf);
-    infer::cuda::trbp method(gpu_crf, std::vector<float>(width * height * 2, 1));
+    infer::cuda::trbp method(gpu_crf, infer::sample_edge_apparence(width, height, samples));
+    //infer::cuda::trbp method(gpu_crf, std::vector<float>(width * height * 2, 1));
 
     // run for 10 iterations
     for (unsigned i = 0; i < max_iter; ++i) {
