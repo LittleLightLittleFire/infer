@@ -78,12 +78,12 @@ public:
     /**
      * Gets the unary energy of this labeling
      */
-    void unary_energy(std::vector<unsigned> labeling);
+    float unary_energy(std::vector<unsigned> labeling);
 
     /**
      * Gets the pairwise energy of this labeling
      */
-    void pairwise_energy(std::vector<unsigned> labeling);
+    float pairwise_energy(std::vector<unsigned> labeling);
 };
 
 }

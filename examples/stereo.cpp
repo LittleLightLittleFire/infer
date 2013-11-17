@@ -68,27 +68,24 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // create the grid CRF with the specified size
-    //infer::crf crf(width, height, labels, unary, lambda, 1, smooth_trunc);
+    // create the grid CRF with the specified size, we need even for the gpu since it provides functions to calculate energy
+    infer::crf crf(width, height, labels, unary, lambda, 1, smooth_trunc);
+
     //infer::bp method(crf, sync);
     //infer::qp method(crf);
     //infer::trbp method(crf, infer::sample_edge_apparence(width, height, samples), sync);
     //infer::trbp method(crf, std::vector<float>(width * height * 2, 1), sync);
 
-    infer::cuda::crf crf(width, height, labels, unary, lambda, 1, smooth_trunc);
-    infer::cuda::bp method(crf);
-
-    {
-        const float unary_energy = method.unary_energy();
-        const float pairwise_energy = method.pairwise_energy();
-        std::cout << "initial" << " " << unary_energy + pairwise_energy << " " << unary_energy << " " << pairwise_energy << std::endl;
-    }
+    infer::cuda::crf gpu_crf(width, height, labels, unary, lambda, 1, smooth_trunc);
+    infer::cuda::bp method(gpu_crf);
 
     // run for 10 iterations
     for (unsigned i = 0; i < max_iter; ++i) {
         method.run(1);
-        const float unary_energy = method.unary_energy();
-        const float pairwise_energy = method.pairwise_energy();
+
+        const std::vector<unsigned> result = method.get_result();
+        const float unary_energy = crf.unary_energy(result);
+        const float pairwise_energy = crf.pairwise_energy(result);
         std::cout << i << " " << unary_energy + pairwise_energy << " " << unary_energy << " " << pairwise_energy << std::endl;
     }
 

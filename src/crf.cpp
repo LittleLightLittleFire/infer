@@ -48,26 +48,26 @@ float crf::pairwise(const unsigned x1, const unsigned y1, const float l1, const 
     }
 }
 
-void crf::unary_energy(const std::vector<unsigned> labeling) {
+float crf::unary_energy(const std::vector<unsigned> labeling) {
     float unary_energy = 0;
 
     // node potentials
     for (unsigned y = 0; y < height_; ++y) {
         for (unsigned x = 0; x < width_; ++x) {
-            unary_energy += unary(x, y, labeling[idx(x, y)]);
+            unary_energy += unary(x, y, labeling[idx_(x, y)]);
         }
     }
 
     return unary_energy;
 }
 
-void crf::pairwise_energy(const std::vector<unsigned> labeling) {
+float crf::pairwise_energy(const std::vector<unsigned> labeling) {
     float pairwise_energy = 0;
     // edge energy
     for (unsigned y = 0; y < height_ - 1; ++y) {
         for (unsigned x = 0; x < width_ - 1; ++x) {
-            pairwise_energy += pairwise(x, y, labeling[idx(x, y)], x+1, y, labeling[idx(x+1, y)]);
-            pairwise_energy += pairwise(x, y, labeling[idx(x, y)], x, y+1, labeling[idx(x, y+1)]);
+            pairwise_energy += pairwise(x, y, labeling[idx_(x, y)], x+1, y, labeling[idx_(x+1, y)]);
+            pairwise_energy += pairwise(x, y, labeling[idx_(x, y)], x, y+1, labeling[idx_(x, y+1)]);
         }
     }
 
