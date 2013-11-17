@@ -31,6 +31,11 @@ memcheck: stereo
 	mkdir -p out
 	$(CUDA_BIN_PATH)/cuda-memcheck ./$< 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
 
+valgrind: stereo
+	mkdir -p out
+	valgrind ./$< 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
+
 clean:
 	-rm *.o
 	-rm $(TARGETS)
+	-rm -r out

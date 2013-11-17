@@ -41,6 +41,9 @@ examples/%: $(LIBRARY)
 memcheck: $(LIBRARY)
 	cd examples && make $@
 
+valgrind: $(LIBRARY)
+	cd examples && make $@
+
 test: $(LIBRARY)
 	cd examples && make test
 
