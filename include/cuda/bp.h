@@ -10,7 +10,7 @@ namespace cuda {
  * Synchronous belief propagation on CUDA
  */
 class bp : public method {
-private:
+protected:
     float *dev_l_, *dev_r_, *dev_u_, *dev_d_;
     unsigned current_iteration;
 
