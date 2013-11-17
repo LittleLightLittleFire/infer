@@ -28,9 +28,9 @@ public:
     const float lambda_;
     const float trunc_;
 
-private:
     const std::vector<float> pairwise_;
 
+private:
     const indexer idx_;
     const indexer ndx_;
 
@@ -84,6 +84,20 @@ public:
      * Gets the pairwise energy of this labeling
      */
     float pairwise_energy(std::vector<unsigned> labeling);
+
+    /**
+     * Generate a condensed CRF with half the width and height
+     */
+    crf downsize() const;
+
+    /**
+     * Default move constructor
+     */
+    crf(crf &&) = default;
+
+private:
+    crf(const crf &) = delete;
+    crf & operator=(const crf &) = delete;
 };
 
 }

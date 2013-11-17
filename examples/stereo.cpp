@@ -4,6 +4,8 @@
 #include "mst.h"
 #include "trbp.h"
 
+#include "compose.h"
+
 #include "cuda/bp.h"
 #include "cuda/trbp.h"
 
@@ -16,7 +18,7 @@
 namespace {
     const unsigned max_iter = 20;
     const unsigned samples = 200;
-    const bool sync = false;
+    const bool sync = true;
 
     const float lambda = 20;
     const float smooth_trunc = 2;
@@ -72,29 +74,29 @@ int main(int argc, char *argv[]) {
     // create the grid CRF with the specified size, we need even for the gpu since it provides functions to calculate energy
     infer::crf crf(width, height, labels, unary, lambda, 1, smooth_trunc);
 
-    //infer::bp method(crf, sync);
-    //infer::qp method(crf);
-    //infer::trbp method(crf, infer::sample_edge_apparence(width, height, samples), sync);
-    //infer::trbp method(crf, std::vector<float>(width * height * 2, 1), sync);
+    ////infer::bp method(crf, sync);
+    ////infer::qp method(crf);
+    ////infer::trbp method(crf, infer::sample_edge_apparence(width, height, samples), sync);
+    ////infer::trbp method(crf, std::vector<float>(width * height * 2, 1), sync);
 
-    infer::cuda::crf gpu_crf(width, height, labels, unary, lambda, 1, smooth_trunc);
-    //infer::cuda::bp method(gpu_crf);
-    infer::cuda::trbp method(gpu_crf, infer::sample_edge_apparence(width, height, samples));
-    //infer::cuda::trbp method(gpu_crf, std::vector<float>(width * height * 2, 1));
+    //infer::cuda::crf gpu_crf(width, height, labels, unary, lambda, 1, smooth_trunc);
+    ////infer::cuda::bp method(gpu_crf);
+    //infer::cuda::trbp method(gpu_crf, infer::sample_edge_apparence(width, height, samples));
+    ////infer::cuda::trbp method(gpu_crf, std::vector<float>(width * height * 2, 1));
 
-    // run for 10 iterations
-    for (unsigned i = 0; i < max_iter; ++i) {
-        method.run(1);
+    //// run for 10 iterations
+    //for (unsigned i = 0; i < max_iter; ++i) {
+        //method.run(1);
 
-        const std::vector<unsigned> result = method.get_result();
-        const float unary_energy = crf.unary_energy(result);
-        const float pairwise_energy = crf.pairwise_energy(result);
-        std::cout << i << " " << unary_energy + pairwise_energy << " " << unary_energy << " " << pairwise_energy << std::endl;
-    }
+        //const std::vector<unsigned> result = method.get_result();
+        //const float unary_energy = crf.unary_energy(result);
+        //const float pairwise_energy = crf.pairwise_energy(result);
+        //std::cout << i << " " << unary_energy + pairwise_energy << " " << unary_energy << " " << pairwise_energy << std::endl;
+    //}
 
     // convert the results into an image
     std::vector<unsigned char> image(width * height * 4);
-    std::vector<unsigned> result = method.get_result();
+    std::vector<unsigned> result = infer::compose<infer::bp>(5, 5, crf, [](const infer::crf &crf){ return infer::bp(crf, sync); });
 
     for (unsigned i = 0; i < width * height; ++i) {
         const float val = result[i] * scale;

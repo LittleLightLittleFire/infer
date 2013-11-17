@@ -67,6 +67,27 @@ bp::bp(const crf &crf, const bool synchronous)
     , right_(crf_.width_ * crf_.height_ * crf.labels_) {
 }
 
+bp::bp(const crf &crf, const bp &prev)
+    : bp(crf, prev.synchronous_) {
+
+    const indexer pdx(prev.crf_.width_, prev.crf_.height_, prev.crf_.labels_);
+
+    // set the messages using prev
+    for (unsigned y = 0; y < crf.height_; ++y) {
+        for (unsigned x = 0; x < crf.width_; ++x) {
+            for (unsigned i = 0; i < crf.labels_; ++i) {
+                const unsigned nidx = ndx_(x, y) + i;
+                const unsigned pidx = pdx(x / 2, y / 2) + i;
+
+                up_[nidx] = prev.up_[pidx];
+                down_[nidx] = prev.down_[pidx];
+                left_[nidx] = prev.left_[pidx];
+                right_[nidx] = prev.right_[pidx];
+            }
+        }
+    }
+}
+
 float bp::msg(const std::vector<float> &msg, const unsigned x, const unsigned y, const unsigned label) const {
     return msg[ndx_(x, y) + label];
 }

@@ -74,4 +74,27 @@ float crf::pairwise_energy(const std::vector<unsigned> labeling) {
     return pairwise_energy;
 }
 
+crf crf::downsize() const {
+    const unsigned new_width = width_ / 2, new_height = height_ / 2;
+
+    // sum of potentials in a 2x2 square
+    std::vector<float> new_unary(new_width * new_height * labels_);
+    const indexer ndx(new_width, new_height, labels_);
+
+    for (unsigned y = 0; y < height_; ++y) {
+        for (unsigned x = 0; x < width_; ++x) {
+            for (unsigned j = 0; j < labels_; ++j) {
+                new_unary[ndx(x / 2, y / 2) + j] += unary(x, y, j);
+            }
+        }
+    }
+
+    if (type_ == crf::type::ARRAY) {
+        return crf(new_width, new_height, labels_, new_unary, lambda_, pairwise_);
+    } else {
+        const unsigned norm = type_ == crf::type::L1 ? 1 : 2;
+        return crf(new_width, new_height, labels_, new_unary, lambda_, norm, trunc_);
+    }
+}
+
 }
