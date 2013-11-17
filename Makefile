@@ -24,6 +24,7 @@ all: $(LIBRARY) examples/stereo
 
 $(LIBRARY): $(LIBRARY_OBJS)
 	ar rcs $@ $^
+	cd examples && make clean
 
 %.o: src/%.cpp
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -34,8 +35,11 @@ $(LIBRARY): $(LIBRARY_OBJS)
 docs:
 	doxygen
 
-examples/%: examples/%.cpp $(LIBRARY)
+examples/%: $(LIBRARY)
 	cd examples && make $*
+
+memcheck: $(LIBRARY)
+	cd examples && make $@
 
 test: $(LIBRARY)
 	cd examples && make test
