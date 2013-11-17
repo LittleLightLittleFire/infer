@@ -74,6 +74,16 @@ public:
      * Gets the pairwise potential for two nodes given their labels, lambda is applied to the result
      */
     float pairwise(const unsigned x1, const unsigned y1, const float l1, const unsigned x2, const unsigned y2, const float l2) const;
+
+    /**
+     * Gets the unary energy of this labeling
+     */
+    void unary_energy(std::vector<unsigned> labeling);
+
+    /**
+     * Gets the pairwise energy of this labeling
+     */
+    void pairwise_energy(std::vector<unsigned> labeling);
 };
 
 }

@@ -25,16 +25,6 @@ public:
     virtual void run(const unsigned iterations) = 0;
 
     /**
-     * Get the unary energy of the current assignment
-     */
-    virtual float unary_energy() const;
-
-    /**
-     * Get the pairwise energy of the current assignment
-     */
-    virtual float pairwise_energy() const;
-
-    /**
      * Get the label of the specified node
      */
     virtual unsigned get_label(const unsigned x, const unsigned y) const = 0;
