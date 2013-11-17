@@ -13,7 +13,7 @@
 #include "lodepng.h"
 
 namespace {
-    const unsigned max_iter = 50;
+    const unsigned max_iter = 20;
     const unsigned samples = 200;
     const bool sync = false;
 

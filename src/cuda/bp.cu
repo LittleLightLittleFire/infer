@@ -59,9 +59,11 @@ __global__ void bp_run(const unsigned labels, const unsigned w, const unsigned h
     const unsigned y = iy;
 
     // bounds check
-    if (x >= w || y >= h) {
+    if (x == 0 || y == 0 || x >= w - 1 || y >= h - 1) {
         return;
     }
+
+    //printf("thread (%u, %u), block (%u, %u) %u %u\n", blockIdx.x, blockIdx.y, threadIdx.x, threadIdx.y, x, y);
 
     const unsigned base = (w * y + x) * labels;
     switch (type) {
@@ -128,6 +130,10 @@ bp::bp(const crf &crf)
 }
 
 void bp::run(const unsigned iterations) {
+    if (iterations != 0) {
+        dirty_ = true;
+    }
+
     dim3 block(8, 16); // only half of the pixels are updated because of the checkboard pattern
     dim3 grid(((crf_.width_ + 1) / 2 + block.x - 1) / block.x, (crf_.height_ + block.y - 1) / block.y);
 
@@ -135,6 +141,7 @@ void bp::run(const unsigned iterations) {
         ++current_iteration;
 
         bp_run<<<grid, block>>>(crf_.labels_, crf_.width_, crf_.height_, current_iteration, crf_.type_, crf_.lambda_, crf_.trunc_, crf_.dev_pairwise_, dev_l_, dev_r_, dev_u_, dev_d_, crf_.dev_unary_);
+        cuda_check(cudaGetLastError());
     }
 }
 
@@ -142,6 +149,7 @@ void bp::update_dev_result() const {
     dim3 block(16, 16);
     dim3 grid((crf_.width_ + block.x - 1) / block.x, (crf_.height_ + block.y - 1) / block.y);
     bp_get_results<<<grid, block>>>(crf_.labels_, crf_.width_, crf_.height_, dev_l_, dev_r_, dev_u_, dev_d_, crf_.dev_unary_, dev_result_);
+    cuda_check(cudaGetLastError());
 }
 
 bp::~bp() {

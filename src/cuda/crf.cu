@@ -16,7 +16,8 @@ crf::crf(const unsigned width, const unsigned height, const unsigned labels, con
     , trunc_(trunc)
     , dev_pairwise_(0) {
 
-    cuda_check(cudaMalloc(&dev_unary_, width * height * labels));
+    cuda_check(cudaMalloc(&dev_unary_, width * height * labels * sizeof(float)));
+    cuda_check(cudaMemcpy(dev_unary_, &unary[0], width * height * labels * sizeof(float), cudaMemcpyHostToDevice));
 }
 
 crf::crf(const unsigned width, const unsigned height, const unsigned labels, const std::vector<float> unary, const float lambda, const std::vector<float> pairwise)
@@ -29,8 +30,11 @@ crf::crf(const unsigned width, const unsigned height, const unsigned labels, con
     , trunc_(0)
     , dev_pairwise_(0) {
 
-    cuda_check(cudaMalloc(&dev_unary_, width * height * labels));
-    cuda_check(cudaMalloc(&dev_pairwise_, labels * labels));
+    cuda_check(cudaMalloc(&dev_unary_, width * height * labels * sizeof(float)));
+    cuda_check(cudaMalloc(&dev_pairwise_, labels * labels * sizeof(float)));
+
+    cuda_check(cudaMemcpy(dev_unary_, &unary[0], width * height * labels * sizeof(float), cudaMemcpyHostToDevice));
+    cuda_check(cudaMemcpy(dev_pairwise_, &pairwise[0], labels * labels * sizeof(float), cudaMemcpyHostToDevice));
 }
 
 crf::~crf() {
