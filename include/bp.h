@@ -26,15 +26,18 @@ protected:
 
 public:
     explicit bp(const crf &crf, const bool synchronous);
+    explicit bp(const crf &crf, const bp &prev);
 
     virtual void run(const unsigned iterations) override;
     virtual unsigned get_label(const unsigned x, const unsigned y) const override;
 
     virtual ~bp() = default;
+    bp(bp &&) = default;
 
 protected:
     float *msg(std::vector<float> &msg, const unsigned x, const unsigned y) const;
     float msg(const std::vector<float> &msg, const unsigned x, const unsigned y, const unsigned label) const;
+
 };
 
 }

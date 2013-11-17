@@ -20,6 +20,10 @@ std::vector<unsigned> method::get_result() const {
     return result;
 }
 
+method::method(method &&temp)
+    : crf_(temp.crf_) {
+}
+
 /** TODO: remove once gcc is updated, clang needs this method to link properly */
 method::~method() {
 }
