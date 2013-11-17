@@ -48,7 +48,7 @@ float crf::pairwise(const unsigned x1, const unsigned y1, const float l1, const 
     }
 }
 
-float crf::unary_energy(const std::vector<unsigned> labeling) {
+float crf::unary_energy(const std::vector<unsigned> labeling) const {
     float unary_energy = 0;
 
     // node potentials
@@ -61,7 +61,7 @@ float crf::unary_energy(const std::vector<unsigned> labeling) {
     return unary_energy;
 }
 
-float crf::pairwise_energy(const std::vector<unsigned> labeling) {
+float crf::pairwise_energy(const std::vector<unsigned> labeling) const {
     float pairwise_energy = 0;
     // edge energy
     for (unsigned y = 0; y < height_ - 1; ++y) {

@@ -58,10 +58,9 @@ inline void send_msg(const crf &crf_
     const float first = out[0];
     std::transform(out, out + labels, out, [first](const float x){ return x - first; });
 }
-
 }
 
-trbp::trbp(const crf &crf, std::vector<float> rho, const bool synchronous)
+trbp::trbp(const crf &crf, const std::vector<float> rho, const bool synchronous)
     : bp(crf, synchronous)
     , rho_(rho)
     , edx_(crf_.width_, crf_.height_) {

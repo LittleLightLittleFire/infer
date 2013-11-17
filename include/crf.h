@@ -78,12 +78,12 @@ public:
     /**
      * Gets the unary energy of this labeling
      */
-    float unary_energy(std::vector<unsigned> labeling);
+    float unary_energy(const std::vector<unsigned> labeling) const;
 
     /**
      * Gets the pairwise energy of this labeling
      */
-    float pairwise_energy(std::vector<unsigned> labeling);
+    float pairwise_energy(const std::vector<unsigned> labeling) const;
 
     /**
      * Generate a condensed CRF with half the width and height
@@ -97,7 +97,7 @@ public:
 
 private:
     crf(const crf &) = delete;
-    crf & operator=(const crf &) = delete;
+    crf &operator=(const crf &) = delete;
 };
 
 }

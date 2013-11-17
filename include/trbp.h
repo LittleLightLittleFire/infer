@@ -13,11 +13,11 @@ namespace infer {
  */
 class trbp : public bp {
 protected:
-    std::vector<float> rho_;
-    edge_indexer edx_;
+    const std::vector<float> rho_;
+    const edge_indexer edx_;
 
 public:
-    explicit trbp(const crf &crf, std::vector<float> rho, const bool synchronous);
+    explicit trbp(const crf &crf, const std::vector<float> rho, const bool synchronous);
 
     virtual void run(const unsigned iterations) override;
     virtual unsigned get_label(const unsigned x, const unsigned y) const override;
