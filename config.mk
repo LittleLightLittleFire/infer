@@ -1,6 +1,7 @@
 # Build options
 LIBRARY = libinfer.a
-GPU_SUPPORT =
+GPU_SUPPORT = true
+DEBUG =
 
 OPT = -O2
 
@@ -12,7 +13,7 @@ else
     CC = g++-4.7
 endif
 
-CFLAGS = -g $(OPT) -Wextra -std=c++11
+CFLAGS = $(OPT) -Wextra -std=c++11
 LDFLAGS =
 
 # CUDA set up
@@ -22,7 +23,12 @@ CUDA_LIB_PATH ?= $(CUDA_PATH)/lib$(shell getconf LONG_BIT)
 CUDA_INC_PATH ?= $(CUDA_PATH)/include
 
 CUDA = $(CUDA_BIN_PATH)/nvcc
-CUDA_CFLAGS = $(OPT) -g -G -arch=sm_35
+CUDA_CFLAGS = $(OPT) -arch=sm_35
+
+ifdef DEBUG
+    CFLAGS += -g
+    CUDA_CFLAGS += -g -G
+endif
 
 ifdef GPU_SUPPORT
     LDFLAGS += -I$(CUDA_INC_PATH) -L$(CUDA_LIB_PATH) -lcudart
