@@ -1,7 +1,7 @@
 #ifndef INFER_CUDA_TRBP_H
 #define INFER_CUDA_TRBP_H
 
-#include "cuda/method.h"
+#include "cuda/bp.h"
 
 #include <vector>
 
@@ -14,6 +14,7 @@ namespace cuda {
 class trbp : public bp {
 private:
     float *dev_rho_;
+
 public:
     explicit trbp(const crf &crf, const std::vector<float> rho);
 
