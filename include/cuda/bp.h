@@ -18,11 +18,7 @@ public:
     explicit bp(const crf &crf);
 
     virtual void run(const unsigned iterations);
-
-    virtual float unary_energy() const;
-    virtual float pairwise_energy() const;
-
-    virtual std::vector<unsigned> get_result() const;
+    virtual void update_dev_result() const;
 
     virtual ~bp();
 };

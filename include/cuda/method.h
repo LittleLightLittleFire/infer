@@ -3,6 +3,8 @@
 
 #include "cuda/crf.h"
 
+#include <vector>
+
 namespace infer {
 namespace cuda {
 
@@ -14,6 +16,11 @@ class method {
 public:
     const crf &crf_;
 
+protected:
+    unsigned *dev_result_;
+    mutable bool dirty_; // is dev_result_ out of sync with the current gpu state
+
+public:
     explicit method(const crf &crf);
 
     /**
@@ -23,24 +30,17 @@ public:
     virtual void run(const unsigned iterations) = 0;
 
     /**
-     * Get the unary energy of the current assignment
-     */
-    virtual float unary_energy() const = 0;
-
-    /**
-     * Get the pairwise energy of the current assignment
-     */
-    virtual float pairwise_energy() const = 0;
-
-    /**
      * Get the result of the computation
      */
-    virtual std::vector<unsigned> get_result() const = 0;
+    virtual std::vector<unsigned> get_result() const;
 
     virtual ~method();
 
-    // disable copy and copy assignment
+protected:
+    virtual void update_dev_result() const = 0;
+
 private:
+    // disable copy and copy assignment
     method(const method &);
     method &operator=(const method &);
 };
