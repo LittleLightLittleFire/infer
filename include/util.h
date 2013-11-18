@@ -19,6 +19,10 @@ struct indexer {
         return scale_ * (x + width_ * y);
     }
 
+    unsigned operator()(const unsigned x, const unsigned y, const unsigned i) const {
+        return scale_ * (x + width_ * y) + i;
+    }
+
     /** returns the node index after applying the operation */
     unsigned operator()(const unsigned idx, const move m) const {
         switch (m) {

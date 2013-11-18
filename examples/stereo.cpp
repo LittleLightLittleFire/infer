@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
     infer::crf crf(width, height, labels, unary, lambda, 1, smooth_trunc);
 
     ////infer::bp method(crf, sync);
-    ////infer::qp method(crf);
+    infer::qp method(crf);
     ////infer::trbp method(crf, infer::sample_edge_apparence(width, height, samples), sync);
     ////infer::trbp method(crf, std::vector<float>(width * height * 2, 1), sync);
 
@@ -84,19 +84,20 @@ int main(int argc, char *argv[]) {
     //infer::cuda::trbp method(gpu_crf, infer::sample_edge_apparence(width, height, samples));
     ////infer::cuda::trbp method(gpu_crf, std::vector<float>(width * height * 2, 1));
 
-    //// run for 10 iterations
-    //for (unsigned i = 0; i < max_iter; ++i) {
-        //method.run(1);
+    // run for 10 iterations
+    for (unsigned i = 0; i < max_iter; ++i) {
+        method.run(1);
+        std::cout << i << " " << method.objective() << std::endl;
 
-        //const std::vector<unsigned> result = method.get_result();
-        //const float unary_energy = crf.unary_energy(result);
-        //const float pairwise_energy = crf.pairwise_energy(result);
-        //std::cout << i << " " << unary_energy + pairwise_energy << " " << unary_energy << " " << pairwise_energy << std::endl;
-    //}
+        const std::vector<unsigned> result = method.get_result();
+        const float unary_energy = crf.unary_energy(result);
+        const float pairwise_energy = crf.pairwise_energy(result);
+        std::cout << i << " " << unary_energy + pairwise_energy << " " << unary_energy << " " << pairwise_energy << std::endl;
+    }
 
     // convert the results into an image
     std::vector<unsigned char> image(width * height * 4);
-    std::vector<unsigned> result = infer::compose<infer::bp>(5, 5, crf, [](const infer::crf &crf){ return infer::bp(crf, sync); });
+    std::vector<unsigned> result = method.get_result(); // infer::compose<infer::bp>(5, 5, crf, [](const infer::crf &crf){ return infer::bp(crf, sync); });
 
     for (unsigned i = 0; i < width * height; ++i) {
         const float val = result[i] * scale;

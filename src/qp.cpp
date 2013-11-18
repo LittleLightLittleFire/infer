@@ -18,33 +18,26 @@ qp::qp(const crf &crf)
     , mu_(&mu1_[0])
     , mu_next_(&mu2_[0]) {
 
-    //std::transform(std::begin(mu1_), std::end(mu1_), std::begin(mu1_), [this](const float x) { return x / scale_; });
-
     for (unsigned y = 1; y < crf_.height_ - 1; ++y) {
         for (unsigned x = 1; x < crf_.width_ - 1; ++x) {
             float *const begin = mu_ + ndx_(x,y);
             float *const end = begin + crf_.labels_;;
 
-            float *const min = std::min_element(begin, end);
-            float *const max = std::max_element(begin, end);
-
             float total = 0;
             for (float *i = begin; i != end; ++i) {
-                *i = std::exp(-*i - *max);
+                *i = exp(-*i);
                 total += *i;
             }
 
-            for (float *i = begin; i != end; ++i) {
-                *i /= total;
+            if (total == 0) {
+                for (float *i = begin; i != end; ++i) {
+                    *i = 1 / static_cast<float>(crf_.labels_);
+                }
+            } else {
+                for (float *i = begin; i != end; ++i) {
+                    *i /= total;
+                }
             }
-
-            //if (*max != 0) {
-                //for (float *i = begin; i != end; ++i) {
-                    //*i = (i == min) ? 1 : 0;
-                //}
-            //} else {
-                //*begin = 1;
-            //}
         }
     }
 
@@ -55,12 +48,14 @@ void qp::run(const unsigned iterations) {
         // calculate the gradient vectors
         for (unsigned y = 1; y < crf_.height_ - 1; ++y) {
             for (unsigned x = 1; x < crf_.width_ - 1; ++x) {
+                float total = 0;
+
                 for (unsigned i = 0; i < crf_.labels_; ++i) {
                     float grad = 0; // gradient of x_i
 
                     auto pair = [i, x, y, &grad, this](unsigned xj, unsigned yj) {
                         for (unsigned j = 0; j < crf_.labels_; ++j) {
-                            grad += crf_.pairwise(x, y, i, xj, yj, j) * mu_[ndx_(xj, yj) + j];
+                            grad += crf_.pairwise(x, y, i, xj, yj, j) * mu_[ndx_(xj, yj, j)];
                         }
                     };
 
@@ -72,47 +67,41 @@ void qp::run(const unsigned iterations) {
 
                     grad *= 2;
                     grad += crf_.unary(x, y, i);
-                    q_[ndx_(x, y) + i] = grad;
-                    //std::cout << q_[ndx_(x, y) + i] << std::endl;
+
+                    total += mu_next_[ndx_(x, y, i)] = mu_[ndx_(x, y, i)] * grad;
                 }
-            }
-        }
-
-        // TODO: gradient vectors of the edges
-
-        // calculate the new mu
-        for (unsigned y = 1; y < crf_.height_ - 1; ++y) {
-            for (unsigned x = 1; x < crf_.width_ - 1; ++x) {
-                float pair_sum = 0;
 
                 for (unsigned i = 0; i < crf_.labels_; ++i) {
-                    const unsigned idx = ndx_(x, y) + i;
-                    //pair_sum += mu_[idx] * q_[idx];
-                    mu_next_[idx] = mu_[idx] * q_[idx];
-                }
-
-                float *const begin = mu_next_ + ndx_(x,y);
-                float *const end = begin + crf_.labels_;;
-
-                float *const min = std::min_element(begin, end);
-                float *const max = std::max_element(begin, end);
-
-                float total = 0;
-                for (float *i = begin; i != end; ++i) {
-                    *i = std::exp(*i - *max);
-                    total += *i;
-                }
-
-                for (float *i = begin; i != end; ++i) {
-                    *i /= total;
+                    mu_next_[ndx_(x, y, i)] /= total;
                 }
             }
         }
-
-        // TODO: new_mu of the edges
 
         std::swap(mu_, mu_next_);
     }
+}
+
+float qp::objective() const {
+    float obj = 0;
+    float obj_pair = 0;
+    for (unsigned y = 1; y < crf_.height_ - 1; ++y) {
+        for (unsigned x = 1; x < crf_.width_ - 1; ++x) {
+            for (unsigned i = 0; i < crf_.labels_; ++i) {
+                obj += mu_[ndx_(x, y, i)] * crf_.unary(x, y, i);
+
+                for (unsigned j = 0; j < crf_.labels_; ++j) {
+                    obj_pair += mu_[ndx_(x, y, i)] * mu_[ndx_(x + 1, y, j)] * crf_.pairwise(x, y, i, x + 1, y, j);
+                    obj_pair += mu_[ndx_(x, y, i)] * mu_[ndx_(x, y + 1, j)] * crf_.pairwise(x, y, i, x, y + 1, j);
+                    obj_pair += mu_[ndx_(x, y, i)] * mu_[ndx_(x, y - 1, j)] * crf_.pairwise(x, y, i, x, y - 1, j);
+                    obj_pair += mu_[ndx_(x, y, i)] * mu_[ndx_(x - 1, y, j)] * crf_.pairwise(x, y, i, x - 1, y, j);
+                }
+            }
+        }
+    }
+
+    //std::cout << obj << " " << obj_pair << " ";
+
+    return obj + obj_pair;
 }
 
 unsigned qp::get_label(const unsigned x, const unsigned y) const {
