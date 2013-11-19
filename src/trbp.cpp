@@ -11,7 +11,7 @@ inline void send_msg(const crf &crf_
                    , const float *m1, const float *m2, const float *m3, const float *opp
                    , const float rm1, const float rm2, const float rm3, const float ropp
                    , const float *pot, float *out
-                   , const unsigned x, const unsigned y, const unsigned xt, const unsigned yt) {
+                   , const unsigned x, const unsigned y, const move m) {
 
     const unsigned labels = crf_.labels_;
 
@@ -47,7 +47,7 @@ inline void send_msg(const crf &crf_
             for (unsigned i = 0; i < labels; ++i) {
                 out[i] = std::numeric_limits<float>::max();
                 for (unsigned j = 0; j < labels; ++j) {
-                    const float val = pot[j] + m1[j] * rm1 + m2[j] * rm2 + m3[j] * rm3 - opp[j] * (1 - ropp) + (1 / ropp) * crf_.pairwise(x, y, i, xt, yt, j);
+                    const float val = pot[j] + m1[j] * rm1 + m2[j] * rm2 + m3[j] * rm3 - opp[j] * (1 - ropp) + (1 / ropp) * crf_.pairwise(x, y, i, m, j);
                     out[i] = std::min(out[i], val);
                 }
             }
@@ -85,16 +85,16 @@ void trbp::run(const unsigned iterations) {
                     // send messages out of x,y
                     //                   m1                 m2                  m3              opp
                     send_msg(crf_, msg(up_,   x, y), msg(down_, x, y), msg(right_, x, y), msg(left_,  x, y)
-                                 , get(up,    x, y), get(down,  x, y), get(right,  x, y), get(left,   x, y), crf_.unary(x, y), msg(right_, x+1, y), x, y, x+1, y);
+                                 , get(up,    x, y), get(down,  x, y), get(right,  x, y), get(left,   x, y), crf_.unary(x, y), msg(right_, x+1, y), x, y, move::RIGHT);
 
                     send_msg(crf_, msg(up_,   x, y), msg(down_, x, y), msg(left_,  x, y), msg(right_, x, y)
-                                 , get(up,    x, y), get(down,  x, y), get(left,   x, y), get(right,  x, y), crf_.unary(x, y), msg(left_,  x-1, y), x, y, x-1, y);
+                                 , get(up,    x, y), get(down,  x, y), get(left,   x, y), get(right,  x, y), crf_.unary(x, y), msg(left_,  x-1, y), x, y, move::LEFT);
 
                     send_msg(crf_, msg(down_, x, y), msg(left_, x, y), msg(right_, x, y), msg(up_,    x, y)
-                                 , get(down,  x, y), get(left,  x, y), get(right,  x, y), get(up,     x, y), crf_.unary(x, y), msg(down_,  x, y+1), x, y, x, y+1);
+                                 , get(down,  x, y), get(left,  x, y), get(right,  x, y), get(up,     x, y), crf_.unary(x, y), msg(down_,  x, y+1), x, y, move::DOWN);
 
                     send_msg(crf_, msg(up_,   x, y), msg(left_, x, y), msg(right_, x, y), msg(down_,  x, y)
-                                 , get(up,    x, y), get(left,  x, y), get(right,  x, y), get(down,   x, y), crf_.unary(x, y), msg(up_,    x, y-1), x, y, x, y-1);
+                                 , get(up,    x, y), get(left,  x, y), get(right,  x, y), get(down,   x, y), crf_.unary(x, y), msg(up_,    x, y-1), x, y, move::UP);
                 }
             }
         } else {
@@ -105,11 +105,11 @@ void trbp::run(const unsigned iterations) {
             for (unsigned y = 1; y < height - 1; ++y) {
                 for (unsigned x = 1; x < width - 1; ++x) {
                     send_msg(crf_, msg(up_,   x, y), msg(down_, x, y), msg(right_, x, y), msg(left_,  x, y)
-                                 , get(up,    x, y), get(down,  x, y), get(right,  x, y), get(left,   x, y), crf_.unary(x, y), msg(right_, x+1, y), x, y, x+1, y);
+                                 , get(up,    x, y), get(down,  x, y), get(right,  x, y), get(left,   x, y), crf_.unary(x, y), msg(right_, x+1, y), x, y, move::RIGHT);
                 }
                 for (unsigned x = width - 2; x > 0; --x) {
                     send_msg(crf_, msg(up_,   x, y), msg(down_, x, y), msg(left_,  x, y), msg(right_, x, y)
-                                 , get(up,    x, y), get(down,  x, y), get(left,   x, y), get(right,  x, y), crf_.unary(x, y), msg(left_,  x-1, y), x, y, x-1, y);
+                                 , get(up,    x, y), get(down,  x, y), get(left,   x, y), get(right,  x, y), crf_.unary(x, y), msg(left_,  x-1, y), x, y, move::LEFT);
                 }
             }
 
@@ -117,11 +117,11 @@ void trbp::run(const unsigned iterations) {
             for (unsigned x = 1; x < width - 1; ++x) {
                 for (unsigned y = 1; y < height - 1; ++y) {
                     send_msg(crf_, msg(down_, x, y), msg(left_, x, y), msg(right_, x, y), msg(up_,    x, y)
-                                 , get(down,  x, y), get(left,  x, y), get(right,  x, y), get(up,     x, y), crf_.unary(x, y), msg(down_,  x, y+1), x, y, x, y+1);
+                                 , get(down,  x, y), get(left,  x, y), get(right,  x, y), get(up,     x, y), crf_.unary(x, y), msg(down_,  x, y+1), x, y, move::DOWN);
                 }
                 for (unsigned y = height - 2; y > 0; --y) {
                     send_msg(crf_, msg(up_,   x, y), msg(left_, x, y), msg(right_, x, y), msg(down_,  x, y)
-                                 , get(up,    x, y), get(left,  x, y), get(right,  x, y), get(down,   x, y), crf_.unary(x, y), msg(up_,    x, y-1), x, y, x, y-1);
+                                 , get(up,    x, y), get(left,  x, y), get(right,  x, y), get(down,   x, y), crf_.unary(x, y), msg(up_,    x, y-1), x, y, move::UP);
                 }
             }
         }

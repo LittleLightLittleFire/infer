@@ -33,6 +33,7 @@ public:
 private:
     const indexer idx_;
     const indexer ndx_;
+    const edge_indexer edx_;
 
 public:
     /**
@@ -49,14 +50,14 @@ public:
    explicit crf(const unsigned width, const unsigned height, const unsigned labels, const std::vector<float> unary, const float lambda, const unsigned norm, const unsigned truc);
 
     /**
-     * Initalise the grid CRF with an array of labels x labels pairwise terms
+     * Initalise the grid CRF with an array of width x height x 2 x labels x labels pairwise terms
      *
      * @param width width of the CRF grid
      * @param height height of the CRF grid
      * @param labels number of labels in the CRF
      * @param potentials a width x height x label array of unary potentials
      * @param lambda scaling of the pairwise potentials
-     * @param potentials a label x label array of potentials
+     * @param potentials a width x height x label x label array of potentials
      */
     explicit crf(const unsigned width, const unsigned height, const unsigned labels, const std::vector<float> unary, const float lambda, const std::vector<float> pairwise);
 
@@ -73,7 +74,7 @@ public:
     /**
      * Gets the pairwise potential for two nodes given their labels, lambda is applied to the result
      */
-    float pairwise(const unsigned x1, const unsigned y1, const float l1, const unsigned x2, const unsigned y2, const float l2) const;
+    float pairwise(const unsigned x, const unsigned y, const unsigned l1, const move dir, const unsigned l2) const;
 
     /**
      * Gets the unary energy of this labeling

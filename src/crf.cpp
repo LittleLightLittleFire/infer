@@ -13,7 +13,7 @@ crf::crf(const unsigned width, const unsigned height, const unsigned labels, con
     , lambda_(lambda)
     , trunc_(0)
     , pairwise_(pairwise)
-    , idx_(width_, height_), ndx_(width_, height_, labels_) {
+    , idx_(width_, height_), ndx_(width_, height_, labels_), edx_(width_, height_) {
 }
 
 crf::crf(const unsigned width, const unsigned height, const unsigned labels, const std::vector<float> unary, const float lambda, const unsigned norm, const unsigned trunc)
@@ -25,7 +25,7 @@ crf::crf(const unsigned width, const unsigned height, const unsigned labels, con
     , lambda_(lambda)
     , trunc_(trunc)
     , pairwise_()
-    , idx_(width_, height_), ndx_(width_, height_, labels_) {
+    , idx_(width_, height_), ndx_(width_, height_, labels_), edx_(width_, height_) {
 }
 
 const float *crf::unary(const unsigned x, const unsigned y) const {
@@ -36,10 +36,10 @@ float crf::unary(const unsigned x, const unsigned y, const unsigned label) const
     return unary_[ndx_(x,y) + label];
 }
 
-float crf::pairwise(const unsigned x1, const unsigned y1, const float l1, const unsigned x2, const unsigned y2, const float l2) const {
+float crf::pairwise(const unsigned x, const unsigned y, const unsigned l1, const move dir, const unsigned l2) const {
     switch (type_) {
         case type::ARRAY:
-            return lambda_ * pairwise_[l2 * labels_ + l1];
+            return lambda_ * pairwise_[edx_(x, y, dir) * l2 * labels_ + l1];
         case type::L1:
             return lambda_ * std::min(std::abs(static_cast<float>(l1) - static_cast<float>(l2)), trunc_);
         case type::L2:
@@ -66,8 +66,8 @@ float crf::pairwise_energy(const std::vector<unsigned> labeling) const {
     // edge energy
     for (unsigned y = 0; y < height_ - 1; ++y) {
         for (unsigned x = 0; x < width_ - 1; ++x) {
-            pairwise_energy += pairwise(x, y, labeling[idx_(x, y)], x+1, y, labeling[idx_(x+1, y)]);
-            pairwise_energy += pairwise(x, y, labeling[idx_(x, y)], x, y+1, labeling[idx_(x, y+1)]);
+            pairwise_energy += pairwise(x, y, labeling[idx_(x, y)], move::RIGHT, labeling[idx_(x+1, y)]);
+            pairwise_energy += pairwise(x, y, labeling[idx_(x, y)], move::DOWN, labeling[idx_(x, y+1)]);
         }
     }
 

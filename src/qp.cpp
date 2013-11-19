@@ -53,17 +53,17 @@ void qp::run(const unsigned iterations) {
                 for (unsigned i = 0; i < crf_.labels_; ++i) {
                     float grad = 0; // gradient of x_i
 
-                    auto pair = [i, x, y, &grad, this](unsigned xj, unsigned yj) {
+                    auto pair = [i, x, y, &grad, this](const unsigned xj, const unsigned yj, const move m) {
                         for (unsigned j = 0; j < crf_.labels_; ++j) {
-                            grad += crf_.pairwise(x, y, i, xj, yj, j) * mu_[ndx_(xj, yj, j)];
+                            grad += crf_.pairwise(x, y, i, m, j) * mu_[ndx_(xj, yj, j)];
                         }
                     };
 
                     // add the contributions from nearby edges
-                    pair(x+1, y);
-                    pair(x-1, y);
-                    pair(x, y-1);
-                    pair(x, y+1);
+                    pair(x+1, y, move::RIGHT);
+                    pair(x-1, y, move::LEFT);
+                    pair(x, y-1, move::UP);
+                    pair(x, y+1, move::DOWN);
 
                     grad *= 2;
                     grad += crf_.unary(x, y, i);
@@ -80,9 +80,7 @@ void qp::run(const unsigned iterations) {
         std::swap(mu_, mu_next_);
     }
 }
-
-float qp::objective() const {
-    float obj = 0;
+float qp::objective() const { float obj = 0;
     float obj_pair = 0;
     for (unsigned y = 1; y < crf_.height_ - 1; ++y) {
         for (unsigned x = 1; x < crf_.width_ - 1; ++x) {
@@ -90,10 +88,8 @@ float qp::objective() const {
                 obj += mu_[ndx_(x, y, i)] * crf_.unary(x, y, i);
 
                 for (unsigned j = 0; j < crf_.labels_; ++j) {
-                    obj_pair += mu_[ndx_(x, y, i)] * mu_[ndx_(x + 1, y, j)] * crf_.pairwise(x, y, i, x + 1, y, j);
-                    obj_pair += mu_[ndx_(x, y, i)] * mu_[ndx_(x, y + 1, j)] * crf_.pairwise(x, y, i, x, y + 1, j);
-                    obj_pair += mu_[ndx_(x, y, i)] * mu_[ndx_(x, y - 1, j)] * crf_.pairwise(x, y, i, x, y - 1, j);
-                    obj_pair += mu_[ndx_(x, y, i)] * mu_[ndx_(x - 1, y, j)] * crf_.pairwise(x, y, i, x - 1, y, j);
+                    obj_pair += mu_[ndx_(x, y, i)] * mu_[ndx_(x, y + 1, j)] * crf_.pairwise(x, y, i, move::DOWN, j);
+                    obj_pair += mu_[ndx_(x, y, i)] * mu_[ndx_(x + 1, y, j)] * crf_.pairwise(x, y, i, move::RIGHT, j);
                 }
             }
         }

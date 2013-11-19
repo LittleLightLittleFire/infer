@@ -29,7 +29,7 @@ public:
     ~crf();
 
 private:
-    // disable copy and move
+    // disable copy and copy assign
     crf(const crf &);
     crf &operator=(const crf &);
 

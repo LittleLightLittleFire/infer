@@ -7,7 +7,7 @@ namespace infer {
 
 namespace {
 
-inline void send_msg(const crf &crf_, const float *m1, const float *m2, const float *m3, const float *pot, float *out, const unsigned x, const unsigned y, const unsigned xt, const unsigned yt) {
+inline void send_msg(const crf &crf_, const float *m1, const float *m2, const float *m3, const float *pot, float *out, const unsigned x, const unsigned y, const move m) {
     const unsigned labels = crf_.labels_;
 
     switch (crf_.type_) {
@@ -42,7 +42,7 @@ inline void send_msg(const crf &crf_, const float *m1, const float *m2, const fl
             for (unsigned i = 0; i < labels; ++i) {
                 out[i] = std::numeric_limits<float>::max();
                 for (unsigned j = 0; j < labels; ++j) {
-                    const float val = pot[j] + m1[j] + m2[j] + m3[j] + crf_.pairwise(x, y, i, xt, yt, j);
+                    const float val = pot[j] + m1[j] + m2[j] + m3[j] + crf_.pairwise(x, y, i, m, j);
                     out[i] = std::min(out[i], val);
                 }
             }
@@ -106,10 +106,10 @@ void bp::run(const unsigned iterations) {
                 for (unsigned x = ((y + current_iter) % 2) + 1; x < crf_.width_ - 1; x += 2) {
                     // send messages out of x,y
                     //        m1                       m2                  m3                   pot               out
-                    send_msg(crf_, msg(up_,   x, y), msg(down_, x, y), msg(right_, x, y), crf_.unary(x, y), msg(right_, x+1, y), x, y, x+1, y);
-                    send_msg(crf_, msg(up_,   x, y), msg(down_, x, y), msg(left_,  x, y), crf_.unary(x, y), msg(left_,  x-1, y), x, y, x-1, y);
-                    send_msg(crf_, msg(down_, x, y), msg(left_, x, y), msg(right_, x, y), crf_.unary(x, y), msg(down_,  x, y+1), x, y, x, y+1);
-                    send_msg(crf_, msg(up_,   x, y), msg(left_, x, y), msg(right_, x, y), crf_.unary(x, y), msg(up_,    x, y-1), x, y, x, y-1);
+                    send_msg(crf_, msg(up_,   x, y), msg(down_, x, y), msg(right_, x, y), crf_.unary(x, y), msg(right_, x+1, y), x, y, move::RIGHT);
+                    send_msg(crf_, msg(up_,   x, y), msg(down_, x, y), msg(left_,  x, y), crf_.unary(x, y), msg(left_,  x-1, y), x, y, move::LEFT);
+                    send_msg(crf_, msg(down_, x, y), msg(left_, x, y), msg(right_, x, y), crf_.unary(x, y), msg(down_,  x, y+1), x, y, move::DOWN);
+                    send_msg(crf_, msg(up_,   x, y), msg(left_, x, y), msg(right_, x, y), crf_.unary(x, y), msg(up_,    x, y-1), x, y, move::UP);
                 }
             }
         } else {
@@ -119,20 +119,20 @@ void bp::run(const unsigned iterations) {
             // right and left messages
             for (unsigned y = 0; y < height; ++y) {
                 for (unsigned x = 0; x < width - 1; ++x) {
-                    send_msg(crf_, msg(up_,   x, y), msg(down_, x, y), msg(right_, x, y), crf_.unary(x, y), msg(right_, x+1, y), x, y, x+1, y);
+                    send_msg(crf_, msg(up_,   x, y), msg(down_, x, y), msg(right_, x, y), crf_.unary(x, y), msg(right_, x+1, y), x, y, move::RIGHT);
                 }
                 for (unsigned x = width - 1; x > 0; --x) {
-                    send_msg(crf_, msg(up_,   x, y), msg(down_, x, y), msg(left_,  x, y), crf_.unary(x, y), msg(left_,  x-1, y), x, y, x-1, y);
+                    send_msg(crf_, msg(up_,   x, y), msg(down_, x, y), msg(left_,  x, y), crf_.unary(x, y), msg(left_,  x-1, y), x, y, move::LEFT);
                 }
             }
 
             // down and up messages
             for (unsigned x = 0; x < width; ++x) {
                 for (unsigned y = 0; y < height - 1; ++y) {
-                    send_msg(crf_, msg(down_, x, y), msg(left_, x, y), msg(right_, x, y), crf_.unary(x, y), msg(down_,  x, y+1), x, y, x, y+1);
+                    send_msg(crf_, msg(down_, x, y), msg(left_, x, y), msg(right_, x, y), crf_.unary(x, y), msg(down_,  x, y+1), x, y, move::DOWN);
                 }
                 for (unsigned y = height - 1; y > 0; --y) {
-                    send_msg(crf_, msg(up_,   x, y), msg(left_, x, y), msg(right_, x, y), crf_.unary(x, y), msg(up_,    x, y-1), x, y, x, y-1);
+                    send_msg(crf_, msg(up_,   x, y), msg(left_, x, y), msg(right_, x, y), crf_.unary(x, y), msg(up_,    x, y-1), x, y, move::UP);
                 }
             }
         }
