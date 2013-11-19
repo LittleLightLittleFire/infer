@@ -2,38 +2,44 @@ include ../config.mk
 
 CFLAGS += -I../include
 
+ifdef GPU_SUPPORT
+    CFLAGS += -DGPU_SUPPORT
+endif
+
 # the order the linker searches for libraries is important, we specify where
 # libinfer's dependencies after we link it
 LDFLAGS := -L../ -linfer $(LDFLAGS)
 
-TARGETS = stereo
+.PHONY: stereo test pairs memcheck valgrind clean
+
+TARGETS = driver
 
 all: $(TARGETS)
 
 %.o: %.cpp
 	$(CC) $(CFLAGS) -c $< -o $@
 
-stereo: lodepng.o stereo.o
+driver: driver.o lodepng.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-test: stereo
+test: driver
 	mkdir -p out
-	./$< 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
+	./$< bp stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
 
-pairs: stereo
+pairs: driver
 	mkdir -p out
-	./$< 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
-	./$< 20 8 data/venus/imL.png data/venus/imR.png out/venus.png
-	./$< 60 4 data/cones/imL.png data/cones/imR.png out/cones.png
-	./$< 60 4 data/teddy/imL.png data/teddy/imR.png out/teddy.png
+	./$< bp stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
+	./$< bp stereo 20 8 data/venus/imL.png data/venus/imR.png out/venus.png
+	./$< bp stereo 60 4 data/cones/imL.png data/cones/imR.png out/cones.png
+	./$< bp stereo 60 4 data/teddy/imL.png data/teddy/imR.png out/teddy.png
 
-memcheck: stereo
+memcheck: driver
 	mkdir -p out
-	$(CUDA_BIN_PATH)/cuda-memcheck ./$< 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
+	$(CUDA_BIN_PATH)/cuda-memcheck ./$< gpu_bp stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
 
-valgrind: stereo
+valgrind: driver
 	mkdir -p out
-	valgrind ./$< 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
+	valgrind ./$< bp stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
 
 clean:
 	-rm *.o

@@ -20,7 +20,7 @@ endif
 
 all: $(LIBRARY) examples/stereo
 
-.PHONEY: test clean
+.PHONY: test clean memcheck valgrind
 
 $(LIBRARY): $(LIBRARY_OBJS)
 	ar rcs $@ $^
