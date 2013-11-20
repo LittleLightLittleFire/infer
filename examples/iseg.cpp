@@ -13,7 +13,7 @@
 
 namespace iseg {
 
-const float gamma = 10;
+const float gamma = 20;
 const float lambda_1 = 5;
 const float lambda_2 = 50;
 
@@ -59,25 +59,30 @@ void run(const std::function<const std::vector<unsigned>(const infer::crf)> meth
             image.push_back(intensity);
         }
 
+        // add one so we don't get infinities
+        for (unsigned i = 0; i < 256; ++i) {
+            if (hist_bg[i] == 0) {
+                ++hist_bg[i];
+            }
+
+            if (hist_fg[i] == 0) {
+                ++hist_fg[i];
+            }
+        }
+
 
         // generate summations for normalisation
         const double hist_fg_sum = std::accumulate(hist_fg.cbegin(), hist_fg.cend(), 0.0);
         const double hist_bg_sum = std::accumulate(hist_bg.cbegin(), hist_bg.cend(), 0.0);
 
+        // create distributions based on the histograms
+
         for (unsigned i = 0; i < image.size(); ++i) {
             const unsigned intensity = image[i];
 
             // assign unary potentials
-            if (hist_bg[intensity] != 0) {
-                unary.push_back(-std::log(hist_bg[intensity] / hist_bg_sum) + (affinity[i] == 1 ? gamma : 0));
-            } else {
-                unary.push_back(100);
-            }
-            if (hist_fg[intensity] != 0) {
-                unary.push_back(-std::log(hist_fg[intensity] / hist_fg_sum) + (affinity[i] == 0 ? gamma : 0));
-            } else {
-                unary.push_back(100);
-            }
+            unary.push_back(-std::log(hist_bg[intensity] / hist_bg_sum) + (affinity[i] == 1 ? gamma : 0));
+            unary.push_back(-std::log(hist_fg[intensity] / hist_fg_sum) + (affinity[i] == 0 ? gamma : 0));
 
             // assign pairwise potentials for down and right edge
             unsigned x = i % width, y = i / width;
@@ -93,8 +98,12 @@ void run(const std::function<const std::vector<unsigned>(const infer::crf)> meth
                     // constrast dependent smoothness term
                     for (unsigned j = 0; j < 2; ++j) {
                         for (unsigned k = 0; k < 2; ++k) {
-                            const float diff = static_cast<float>(image[idx(x, y)]) - static_cast<float>(image[idx(x2, y2)]);
-                            pairwise.push_back(lambda_1 + lambda_2 * std::exp(-0.5 * sqrt(std::abs(diff))));
+                            if (j == k) {
+                                pairwise.push_back(0);
+                            } else {
+                                const float diff = std::abs(static_cast<float>(image[idx(x, y)]) - static_cast<float>(image[idx(x2, y2)]));
+                                pairwise.push_back(lambda_1 + lambda_2 * std::exp(-0.5 * std::sqrt(diff)));
+                            }
                         }
                     }
                 }
