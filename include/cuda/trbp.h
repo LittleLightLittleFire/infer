@@ -20,6 +20,7 @@ public:
 
     virtual void run(const unsigned iterations);
     virtual void update_dev_result() const;
+    virtual std::string get_name() const;
 
     virtual ~trbp();
 };

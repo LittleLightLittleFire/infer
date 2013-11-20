@@ -119,4 +119,8 @@ unsigned qp::get_label(const unsigned x, const unsigned y) const {
     return max_label;
 }
 
+std::string qp::get_name() const {
+    return "qp";
+}
+
 }

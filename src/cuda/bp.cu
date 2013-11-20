@@ -46,6 +46,10 @@ void bp::update_dev_result() const {
     cuda_check(cudaGetLastError());
 }
 
+std::string bp::get_name() const {
+    return "gpu_bp";
+}
+
 bp::~bp() {
     cudaFree(dev_l_);
     cudaFree(dev_r_);

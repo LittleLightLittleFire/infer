@@ -3,6 +3,7 @@
 
 #include "method.h"
 
+#include <string>
 #include <vector>
 
 namespace infer {
@@ -23,6 +24,8 @@ public:
 
     virtual void run(const unsigned iterations) override;
     virtual unsigned get_label(const unsigned x, const unsigned y) const override;
+    virtual std::string get_name() const override;
+
     virtual float objective() const;
 
     virtual ~qp() = default;

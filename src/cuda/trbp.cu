@@ -37,6 +37,10 @@ void trbp::update_dev_result() const {
     cuda_check(cudaGetLastError());
 }
 
+std::string trbp::get_name() const {
+    return "gpu_trbp";
+}
+
 trbp::~trbp() {
     cudaFree(dev_rho_);
 }

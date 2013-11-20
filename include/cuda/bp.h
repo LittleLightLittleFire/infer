@@ -2,6 +2,7 @@
 #define INFER_CUDA_BP_H
 
 #include "cuda/method.h"
+#include <string>
 
 namespace infer {
 namespace cuda {
@@ -19,7 +20,7 @@ public:
 
     virtual void run(const unsigned iterations);
     virtual void update_dev_result() const;
-
+    virtual void std::string
     virtual ~bp();
 };
 

@@ -149,4 +149,8 @@ unsigned trbp::get_label(const unsigned x, const unsigned y) const {
     return min_label;
 }
 
+std::string trbp::get_name() const {
+    return synchronous_ ? "trbp" : "trbp_async";
+}
+
 }

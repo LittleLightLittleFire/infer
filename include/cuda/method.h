@@ -34,6 +34,11 @@ public:
      */
     virtual std::vector<unsigned> get_result() const;
 
+    /**
+     * Gets the name of this method
+     */
+    virtual std::string get_name() const = 0;
+
     virtual ~method();
 
 protected:

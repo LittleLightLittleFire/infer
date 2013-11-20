@@ -159,4 +159,8 @@ unsigned bp::get_label(const unsigned x, const unsigned y) const {
     return min_label;
 }
 
+std::string bp::get_name() const {
+    return synchronous_ ? "bp" : "bp_async";
+}
+
 }

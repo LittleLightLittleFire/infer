@@ -2,6 +2,7 @@
 #define INFER_METHOD_H
 
 #include "crf.h"
+#include <string>
 
 namespace infer {
 
@@ -28,6 +29,11 @@ public:
      * Get the label of the specified node
      */
     virtual unsigned get_label(const unsigned x, const unsigned y) const = 0;
+
+    /**
+     * Get the name of the method
+     */
+    virtual std::string get_name() const = 0;
 
     /**
      * Get results, equivalent to calling get_label for every pixel
