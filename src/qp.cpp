@@ -25,7 +25,7 @@ qp::qp(const crf &crf)
 
             float total = 0;
             for (float *i = begin; i != end; ++i) {
-                *i = exp(-*i);
+                *i = std::exp(-*i);
                 total += *i;
             }
 
@@ -55,7 +55,7 @@ void qp::run(const unsigned iterations) {
 
                     auto pair = [i, x, y, &grad, this](const unsigned xj, const unsigned yj, const move m) {
                         for (unsigned j = 0; j < crf_.labels_; ++j) {
-                            grad += crf_.pairwise(x, y, i, m, j) * mu_[ndx_(xj, yj, j)];
+                            grad += std::exp(- crf_.pairwise(x, y, i, m, j)) * mu_[ndx_(xj, yj, j)];
                         }
                     };
 
@@ -66,8 +66,9 @@ void qp::run(const unsigned iterations) {
                     pair(x, y+1, move::DOWN);
 
                     grad *= 2;
-                    grad += crf_.unary(x, y, i);
+                    grad += std::exp(- crf_.unary(x, y, i));
 
+                    assert(mu_[ndx_(x, y, i)] >= 0); assert(mu_[ndx_(x, y, i)] <= 1);
                     total += mu_next_[ndx_(x, y, i)] = mu_[ndx_(x, y, i)] * grad;
                 }
 
@@ -80,11 +81,14 @@ void qp::run(const unsigned iterations) {
         std::swap(mu_, mu_next_);
     }
 }
+
 float qp::objective() const { float obj = 0;
     float obj_pair = 0;
     for (unsigned y = 1; y < crf_.height_ - 1; ++y) {
         for (unsigned x = 1; x < crf_.width_ - 1; ++x) {
             for (unsigned i = 0; i < crf_.labels_; ++i) {
+                assert(mu_[ndx_(x, y, i)] >= 0); assert(mu_[ndx_(x, y, i)] <= 1);
+
                 obj += mu_[ndx_(x, y, i)] * crf_.unary(x, y, i);
 
                 for (unsigned j = 0; j < crf_.labels_; ++j) {
