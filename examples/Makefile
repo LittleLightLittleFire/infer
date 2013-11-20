@@ -24,7 +24,7 @@ driver: driver.o lodepng.o stereo.o iseg.o
 
 test: driver
 	mkdir -p out
-	#./$< bp stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
+	./$< bp stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
 	./$< bp iseg data/leafpav/leafpav.png data/leafpav/leafpav_anno.png out/leafpav.png
 	./$< bp iseg data/postjp/postjp.png data/postjp/postjp_anno.png out/postjp.png
 	./$< bp iseg data/palovigna/palovigna.png data/palovigna/palovigna_anno.png out/palovigna.png
