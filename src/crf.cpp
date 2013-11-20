@@ -39,7 +39,7 @@ float crf::unary(const unsigned x, const unsigned y, const unsigned label) const
 float crf::pairwise(const unsigned x, const unsigned y, const unsigned l1, const move dir, const unsigned l2) const {
     switch (type_) {
         case type::ARRAY:
-            return lambda_ * pairwise_[edx_(x, y, dir) * l2 * labels_ + l1];
+            return lambda_ * pairwise_[edx_(x, y, dir) * labels_ * labels_ + labels_ * l2 + l1];
         case type::L1:
             return lambda_ * std::min(std::abs(static_cast<float>(l1) - static_cast<float>(l2)), trunc_);
         case type::L2:
