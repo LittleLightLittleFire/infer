@@ -1,5 +1,4 @@
-#include "stereo.h"
-#include "iseg.h"
+#include "driver.h"
 
 #include "bp.h"
 #include "trbp.h"

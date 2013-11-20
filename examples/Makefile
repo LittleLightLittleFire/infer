@@ -19,12 +19,16 @@ all: $(TARGETS)
 %.o: %.cpp
 	$(CC) $(CFLAGS) -c $< -o $@
 
-driver: driver.o lodepng.o
+driver: driver.o lodepng.o stereo.o iseg.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 test: driver
 	mkdir -p out
-	./$< bp stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
+	#./$< bp stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
+	./$< bp iseg data/leafpav/leafpav.png data/leafpav/leafpav_anno.png out/leafpav.png
+	./$< bp iseg data/postjp/postjp.png data/postjp/postjp_anno.png out/postjp.png
+	./$< bp iseg data/palovigna/palovigna.png data/palovigna/palovigna_anno.png out/palovigna.png
+	./$< bp iseg data/tendrils/tendrils.png data/tendrils/tendrils_anno.png out/tendrils.png
 
 pairs: driver
 	mkdir -p out
@@ -40,6 +44,7 @@ memcheck: driver
 valgrind: driver
 	mkdir -p out
 	valgrind ./$< bp stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
+	valgrind ./$< bp iseg data/leafpav/leafpav.png data/leafpav/leafpav_anno.png out/leafpav.png
 
 clean:
 	-rm *.o
