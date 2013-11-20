@@ -18,7 +18,7 @@ ifdef GPU_SUPPORT
 	LIBRARY_OBJS += $(CUDA_OBJS)
 endif
 
-all: $(LIBRARY) examples/stereo
+all: $(LIBRARY) examples/driver
 
 .PHONY: test clean memcheck valgrind
 

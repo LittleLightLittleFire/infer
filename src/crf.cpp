@@ -33,7 +33,7 @@ const float *crf::unary(const unsigned x, const unsigned y) const {
 }
 
 float crf::unary(const unsigned x, const unsigned y, const unsigned label) const {
-    return unary_[ndx_(x,y) + label];
+    return unary_[ndx_(x, y, label)];
 }
 
 float crf::pairwise(const unsigned x, const unsigned y, const unsigned l1, const move dir, const unsigned l2) const {
@@ -75,7 +75,7 @@ float crf::pairwise_energy(const std::vector<unsigned> labeling) const {
 }
 
 crf crf::downsize() const {
-    const unsigned new_width = width_ / 2, new_height = height_ / 2;
+    const unsigned new_width = (width_ + 1)/ 2, new_height = (height_ + 1) / 2;
 
     // sum of potentials in a 2x2 square
     std::vector<float> new_unary(new_width * new_height * labels_);
@@ -90,7 +90,20 @@ crf crf::downsize() const {
     }
 
     if (type_ == crf::type::ARRAY) {
-        return crf(new_width, new_height, labels_, new_unary, lambda_, pairwise_);
+        // sum the edge potentials
+        std::vector<float> new_pairwise(new_width * new_height * labels_ * labels_ * 2);
+
+        for (unsigned y = 0; y < height_; ++y) {
+            for (unsigned x = 0; x < width_; ++x) {
+                for (unsigned i = 0; i < labels_ * labels_; ++i) {
+                    const unsigned node = (new_width * (y / 2) + (x / 2)) * (labels_ * labels_ * 2);
+                    new_pairwise[node + i]                       += pairwise(x, y, i % labels_, move::DOWN, i / labels_);
+                    new_pairwise[node + (labels_ * labels_) + i] += pairwise(x, y, i % labels_, move::RIGHT, i / labels_);
+                }
+            }
+        }
+
+        return crf(new_width, new_height, labels_, new_unary, lambda_, new_pairwise);
     } else {
         const unsigned norm = type_ == crf::type::L1 ? 1 : 2;
         return crf(new_width, new_height, labels_, new_unary, lambda_, norm, trunc_);
