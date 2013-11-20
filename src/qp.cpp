@@ -68,7 +68,6 @@ void qp::run(const unsigned iterations) {
                     grad *= 2;
                     grad += std::exp(- crf_.unary(x, y, i));
 
-                    assert(mu_[ndx_(x, y, i)] >= 0); assert(mu_[ndx_(x, y, i)] <= 1);
                     total += mu_next_[ndx_(x, y, i)] = mu_[ndx_(x, y, i)] * grad;
                 }
 
@@ -87,8 +86,6 @@ float qp::objective() const { float obj = 0;
     for (unsigned y = 1; y < crf_.height_ - 1; ++y) {
         for (unsigned x = 1; x < crf_.width_ - 1; ++x) {
             for (unsigned i = 0; i < crf_.labels_; ++i) {
-                assert(mu_[ndx_(x, y, i)] >= 0); assert(mu_[ndx_(x, y, i)] <= 1);
-
                 obj += mu_[ndx_(x, y, i)] * crf_.unary(x, y, i);
 
                 for (unsigned j = 0; j < crf_.labels_; ++j) {
