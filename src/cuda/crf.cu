@@ -31,10 +31,10 @@ crf::crf(const unsigned width, const unsigned height, const unsigned labels, con
     , dev_pairwise_(0) {
 
     cuda_check(cudaMalloc(&dev_unary_, width * height * labels * sizeof(float)));
-    cuda_check(cudaMalloc(&dev_pairwise_, labels * labels * sizeof(float)));
+    cuda_check(cudaMalloc(&dev_pairwise_, width * height * labels * labels * 2 * sizeof(float)));
 
     cuda_check(cudaMemcpy(dev_unary_, &unary[0], width * height * labels * sizeof(float), cudaMemcpyHostToDevice));
-    cuda_check(cudaMemcpy(dev_pairwise_, &pairwise[0], labels * labels * sizeof(float), cudaMemcpyHostToDevice));
+    cuda_check(cudaMemcpy(dev_pairwise_, &pairwise[0], width * height * labels * labels * 2 * sizeof(float), cudaMemcpyHostToDevice));
 }
 
 crf::~crf() {
