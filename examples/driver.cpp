@@ -9,6 +9,7 @@
 #ifdef GPU_SUPPORT
 #include "cuda/bp.h"
 #include "cuda/trbp.h"
+#include "cuda/compose.h"
 #endif
 
 #include <string>
@@ -103,13 +104,13 @@ int main(int argc, char *argv[]) {
         if (algorithm.substr(0, 3) != "gpu") {
             // methods based on composition
             if (algorithm == "hbp") {
-                const std::vector<unsigned> result = infer::hbp(layers, rounds, sync, crf);
+                const std::vector<unsigned> result = infer::hbp(layers, rounds_per_layer, sync, crf);
                 if (verbose) {
                     output_energy(algorithm + (!sync ? "_async" : "") , result, crf, std::to_string(layers) + "x" + std::to_string(rounds_per_layer));
                 }
                 return result;
             } else if (algorithm == "trhbp") {
-                const std::vector<unsigned> result = infer::trhbp(layers, rounds, infer::sample_edge_apparence(crf.width_, crf.height_, mst_samples, layers), sync, crf);
+                const std::vector<unsigned> result = infer::trhbp(layers, rounds_per_layer, infer::sample_edge_apparence(crf.width_, crf.height_, mst_samples, layers), sync, crf);
                 if (verbose) {
                     output_energy(algorithm + (!sync ? "_async" : "") , result, crf, std::to_string(layers) + "x" + std::to_string(rounds_per_layer));
                 }
@@ -142,6 +143,15 @@ int main(int argc, char *argv[]) {
             } else {
                 const unsigned norm = crf.type_ == infer::crf::type::L1 ? 1 : 2;
                 gpu_crf = std::unique_ptr<infer::cuda::crf>(new infer::cuda::crf(crf.width_, crf.height_, crf.labels_, crf.unary_, crf.lambda_, norm, crf.trunc_));
+            }
+
+            // hbp is different
+            if (algorithm == "gpu_hbp") {
+                const std::vector<unsigned> result = infer::cuda::hbp(layers, rounds_per_layer, *gpu_crf);
+                if (verbose) {
+                    output_energy(algorithm, result, crf, std::to_string(layers) + "x" + std::to_string(rounds_per_layer));
+                }
+                return result;
             }
 
             std::unique_ptr<infer::cuda::method> gpu_method;

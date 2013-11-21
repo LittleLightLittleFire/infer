@@ -25,10 +25,11 @@ driver: driver.o lodepng.o stereo.o iseg.o
 test: driver
 	mkdir -p out
 	#./$< bp -v stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
+	#./$< gpu_bp -v stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
 	./$< hbp -v stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba_hbp.png
-	./$< hbp -v -a stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba_hbp_a.png
-	./$< trhbp -v stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba_trhbp.png
-	./$< trhbp -v -a stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba_trhbp_a.png
+	#./$< gpu_hbp -v stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba_hbp.png
+	#./$< trhbp -v stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba_trhbp.png
+	#./$< trhbp -v -a stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba_trhbp_a.png
 	#./$< hbp -v iseg data/leafpav/leafpav.png data/leafpav/leafpav_anno.png out/leafpav.png
 	#./$< bp -v -r 20 iseg data/leafpav/leafpav.png data/leafpav/leafpav_anno.png out/leafpav.png
 	#./$< qp iseg data/postjp/postjp.png data/postjp/postjp_anno.png out/postjp.png
@@ -44,7 +45,7 @@ pairs: driver
 
 memcheck: driver
 	mkdir -p out
-	$(CUDA_BIN_PATH)/cuda-memcheck ./$< gpu_bp stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
+	$(CUDA_BIN_PATH)/cuda-memcheck ./$< gpu_hbp -v stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
 
 valgrind: driver
 	mkdir -p out
