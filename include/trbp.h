@@ -18,11 +18,13 @@ protected:
 
 public:
     explicit trbp(const crf &crf, const std::vector<float> rho, const bool synchronous);
+    explicit trbp(const crf &crf, const std::vector<float> rho, const trbp &prev);
 
     virtual void run(const unsigned iterations) override;
     virtual unsigned get_label(const unsigned x, const unsigned y) const override;
     virtual std::string get_name() const override;
 
+    trbp(trbp &&) = default;
     virtual ~trbp() = default;
 };
 

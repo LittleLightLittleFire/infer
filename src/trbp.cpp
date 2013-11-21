@@ -1,4 +1,5 @@
 #include "trbp.h"
+#include "mst.h"
 
 #include <limits>
 #include <algorithm>
@@ -65,6 +66,12 @@ trbp::trbp(const crf &crf, const std::vector<float> rho, const bool synchronous)
     , rho_(rho)
     , edx_(crf_.width_, crf_.height_) {
 
+}
+
+trbp::trbp(const crf &crf, const std::vector<float> rho, const trbp &prev)
+    : bp(crf, prev)
+    , rho_(rho)
+    , edx_(crf_.width_, crf_.height_) {
 }
 
 void trbp::run(const unsigned iterations) {

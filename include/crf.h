@@ -50,14 +50,14 @@ public:
    explicit crf(const unsigned width, const unsigned height, const unsigned labels, const std::vector<float> unary, const float lambda, const unsigned norm, const unsigned truc);
 
     /**
-     * Initalise the grid CRF with an array of width x height x 2 x labels x labels pairwise terms
+     * Initalise the grid CRF with an array of width x height x labels x labels x 2 pairwise terms
      *
      * @param width width of the CRF grid
      * @param height height of the CRF grid
      * @param labels number of labels in the CRF
      * @param potentials a width x height x label array of unary potentials
      * @param lambda scaling of the pairwise potentials
-     * @param potentials a width x height x label x label array of potentials
+     * @param potentials a width x height x label x label x 2 array of potentials
      */
     explicit crf(const unsigned width, const unsigned height, const unsigned labels, const std::vector<float> unary, const float lambda, const std::vector<float> pairwise);
 

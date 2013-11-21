@@ -93,4 +93,15 @@ std::vector<float> sample_edge_apparence(const unsigned width, const unsigned he
     return edge_record;
 }
 
+std::vector<std::vector<float>> sample_edge_apparence(unsigned width, unsigned height, const unsigned max_iter, const unsigned layers) {
+    std::vector<std::vector<float>> result;
+    for (unsigned i = 0; i < layers; ++i) {
+        result.push_back(sample_edge_apparence(width, height, max_iter));
+
+        width = (width + 1) / 2;
+        height = (height + 1) / 2;
+    }
+    return result;
+}
+
 }
