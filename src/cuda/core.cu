@@ -60,6 +60,74 @@ __device__ void send_message_L1(const unsigned labels, const unsigned x, const u
     fast_L1_helper(labels, curr_min, lambda * (1 / ropp), lambda * trunc * (1 / ropp), out);
 }
 
+__device__ float *ndx(const unsigned labels, const unsigned width, float *dir, const unsigned x, const unsigned y) {
+    return labels * (x + y * width) + dir;
+}
+
+__device__ const float *cndx(const unsigned labels, const unsigned width, const float *dir, const unsigned x, const unsigned y) {
+    return labels * (x + y * width) + dir;
+}
+
+}
+
+/** initalise messages using the messages from the layer below */
+__global__ void prime(const unsigned lbl, const unsigned w, const unsigned h, const unsigned prev_w, const float *prev_msg, float *out) {
+    const unsigned x = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    // boundary check
+    if (x >= w || y >= h) {
+        return;
+    }
+
+    // initaise to the last layer's (x/2, y/2)
+    float *target = ndx(lbl, w, out, x, y);
+    const float *source = cndx(lbl, prev_w, prev_msg, x / 2, y / 2);
+
+    for (unsigned i = 0; i < lbl; ++i) {
+        target[i] = source[i];
+    }
+}
+
+
+/** generate the next layer's potentials */
+__global__ void fill_next_layer_pot(const unsigned labels, const unsigned width, const unsigned height, const unsigned max_width, const unsigned max_height, const float *pot, float *out) {
+    const unsigned x = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    // bounds check
+    if (x >= width || y >= height) {
+        return;
+    }
+
+    // collapse the potential in a 2x2 area
+    float *target = ndx(labels, width, out, x, y);
+    const float *top_left = cndx(labels, max_width, pot, 2 * x, 2 * y);;
+
+    for (unsigned i = 0; i < labels; ++i) {
+        target[i] = top_left[i];
+    }
+
+    if (2 * x + 1 < max_width) {
+        const float *top_right = cndx(labels, max_width, pot, 2 * x + 1, 2 * y);;
+        for (unsigned i = 0; i < labels; ++i) {
+            target[i] += top_right[i];
+        }
+    }
+
+    if (2 * (y + 1) < max_height) {
+        const float *bottom_left = cndx(labels, max_width, pot, 2 * x, 2 * (y + 1));
+        for (unsigned i = 0; i < labels; ++i) {
+            target[i] += bottom_left[i];
+        }
+    }
+
+    if (2 * x + 1 < max_width && 2 * (y + 1) < max_height) {
+        const float *bottom_right = cndx(labels, max_width, pot, 2 * x + 1, 2 * (y + 1));
+        for (unsigned i = 0; i < labels; ++i) {
+            target[i] += bottom_right[i];
+        }
+    }
 }
 
 __global__ void trbp_run(const unsigned labels, const unsigned w, const unsigned h, const unsigned i, const crf::type type, const float lambda, const float trunc, const float *pairwise, float *l, float *r, float *u, float *d, const float *pot, const float *rho) {
@@ -112,8 +180,8 @@ __global__ void trbp_run(const unsigned labels, const unsigned w, const unsigned
 }
 
 __global__ void trbp_get_results(const unsigned labels, const unsigned w, const unsigned h, const float *l, const float *r, const float *u, const float *d, const float *pot, unsigned *out, const float *rho) {
-    const uint x = blockIdx.x * blockDim.x + threadIdx.x;
-    const uint y = blockIdx.y * blockDim.y + threadIdx.y;
+    const unsigned x = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned y = blockIdx.y * blockDim.y + threadIdx.y;
 
     // bounds check
     if (x >= w || y >= h) {
@@ -125,7 +193,7 @@ __global__ void trbp_get_results(const unsigned labels, const unsigned w, const 
 
     const unsigned base = (w * y + x) * labels;
 
-    for (uint i = 0; i < labels; ++i) {
+    for (unsigned i = 0; i < labels; ++i) {
         float val = (pot + base)[i];
 
         if (rho) {

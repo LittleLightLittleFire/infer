@@ -1,6 +1,7 @@
 #include "crf.h"
 
 #include <cmath>
+#include <stdexcept>
 
 namespace infer {
 
@@ -90,20 +91,7 @@ crf crf::downsize() const {
     }
 
     if (type_ == crf::type::ARRAY) {
-        // sum the edge potentials
-        std::vector<float> new_pairwise(new_width * new_height * labels_ * labels_ * 2);
-
-        for (unsigned y = 0; y < height_; ++y) {
-            for (unsigned x = 0; x < width_; ++x) {
-                for (unsigned i = 0; i < labels_ * labels_; ++i) {
-                    const unsigned node = (new_width * (y / 2) + (x / 2)) * (labels_ * labels_ * 2);
-                    new_pairwise[node + i]                       += pairwise(x, y, i % labels_, move::DOWN, i / labels_);
-                    new_pairwise[node + (labels_ * labels_) + i] += pairwise(x, y, i % labels_, move::RIGHT, i / labels_);
-                }
-            }
-        }
-
-        return crf(new_width, new_height, labels_, new_unary, lambda_, new_pairwise);
+        throw std::runtime_error("Cannot generate a scaled down version of the CRF when explicit pairwise potential are used");
     } else {
         const unsigned norm = type_ == crf::type::L1 ? 1 : 2;
         return crf(new_width, new_height, labels_, new_unary, lambda_, norm, trunc_);

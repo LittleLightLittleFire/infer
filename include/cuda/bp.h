@@ -17,10 +17,11 @@ protected:
 
 public:
     explicit bp(const crf &crf);
+    explicit bp(const crf &new_crf, const bp &prev);
 
     virtual void run(const unsigned iterations);
     virtual void update_dev_result() const;
-    virtual void std::string
+    virtual std::string get_name() const;
     virtual ~bp();
 };
 

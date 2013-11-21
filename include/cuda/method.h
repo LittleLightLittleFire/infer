@@ -4,6 +4,7 @@
 #include "cuda/crf.h"
 
 #include <vector>
+#include <string>
 
 namespace infer {
 namespace cuda {

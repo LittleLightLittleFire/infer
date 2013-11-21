@@ -26,6 +26,7 @@ public:
     explicit crf(const unsigned width, const unsigned height, const unsigned labels, const std::vector<float> unary, const float lambda, const unsigned norm, const unsigned trunc);
     explicit crf(const unsigned width, const unsigned height, const unsigned labels, const std::vector<float> unary, const float lambda, const std::vector<float> pairwise);
 
+    explicit crf(const crf &prev, int);
     ~crf();
 
 private:
