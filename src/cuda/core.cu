@@ -144,15 +144,15 @@ __global__ void trbp_run(const unsigned labels, const unsigned w, const unsigned
 
     //printf("thread (%u, %u), block (%u, %u) %u %u\n", blockIdx.x, blockIdx.y, threadIdx.x, threadIdx.y, x, y);
 
-    const float up = rho[(w * y + x) * 2];
-    const float left = rho[(w * y + x) * 2 + 1];
-    const float down = rho[(w * (y - 1) + x) * 2];
-    const float right = rho[(w * y + (x - 1)) * 2 + 1];
-
     const unsigned base = (w * y + x) * labels;
     switch (type) {
         case crf::L1:
             if (rho) {
+                const float up = rho[(w * y + x) * 2];
+                const float left = rho[(w * y + x) * 2 + 1];
+                const float down = rho[(w * (y - 1) + x) * 2];
+                const float right = rho[(w * y + (x - 1)) * 2 + 1];
+
                 //                                           m1        m2        m3        opp
                 send_message_L1(labels, x, y, lambda, trunc, u + base, d + base, r + base, l + base
                                                            , up      , down    , right   , left     , pot + base, r + (w * y + x + 1) * labels);

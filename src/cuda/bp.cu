@@ -3,6 +3,8 @@
 
 #include "cuda/core.h"
 
+#include <iostream>
+
 namespace infer {
 namespace cuda {
 
@@ -38,9 +40,13 @@ bp::bp(const crf &crf, const bp::bp &prev)
     dim3 grid(((crf_.width_ + 1) / 2 + block.x - 1) / block.x, (crf_.height_ + block.y - 1) / block.y);
 
     prime<<<grid, block>>>(crf_.labels_, crf_.width_, crf_.height_, prev.crf_.width_, prev.dev_l_, dev_l_);
+    cuda_check(cudaGetLastError());
     prime<<<grid, block>>>(crf_.labels_, crf_.width_, crf_.height_, prev.crf_.width_, prev.dev_r_, dev_r_);
+    cuda_check(cudaGetLastError());
     prime<<<grid, block>>>(crf_.labels_, crf_.width_, crf_.height_, prev.crf_.width_, prev.dev_u_, dev_u_);
+    cuda_check(cudaGetLastError());
     prime<<<grid, block>>>(crf_.labels_, crf_.width_, crf_.height_, prev.crf_.width_, prev.dev_d_, dev_d_);
+    cuda_check(cudaGetLastError());
 }
 
 void bp::run(const unsigned iterations) {

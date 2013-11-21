@@ -58,8 +58,8 @@ crf::crf(const crf &prev, int)
     // initalise the new potential from the previous one
     dim3 block(16, 16);
     dim3 grid((width_ + block.x - 1) / block.x, (height_ + block.y - 1) / block.y);
-    fill_next_layer_pot<<<grid, block>>>(labels_, width_, height_, prev.width_, prev.height_, prev.dev_unary_, dev_unary_);
 
+    fill_next_layer_pot<<<grid, block>>>(labels_, width_, height_, prev.width_, prev.height_, prev.dev_unary_, dev_unary_);
     cuda_check(cudaGetLastError());
 }
 
