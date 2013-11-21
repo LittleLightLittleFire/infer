@@ -7,6 +7,18 @@ namespace infer {
 namespace cuda {
 
 namespace {
+__device__ float *ndx(const unsigned labels, const unsigned width, float *dir, const unsigned x, const unsigned y) {
+    return labels * (x + y * width) + dir;
+}
+
+__device__ const float *cndx(const unsigned labels, const unsigned width, const float *dir, const unsigned x, const unsigned y) {
+    return labels * (x + y * width) + dir;
+}
+
+__device__ const float *edx(const unsigned labels, const unsigned width, const float *pairwise, const unsigned rdx) {
+    return width * labels * labels + pairwise;
+}
+
 __device__ void fast_L1_helper(const unsigned labels, const float curr_min, const float s, const float t, float *out) {
 
     // do the O(n) trick
@@ -60,12 +72,16 @@ __device__ void send_message_L1(const unsigned labels, const unsigned x, const u
     fast_L1_helper(labels, curr_min, lambda * (1 / ropp), lambda * trunc * (1 / ropp), out);
 }
 
-__device__ float *ndx(const unsigned labels, const unsigned width, float *dir, const unsigned x, const unsigned y) {
-    return labels * (x + y * width) + dir;
-}
+__device__ void send_message_array(const unsigned labels, const unsigned x, const unsigned y, const float lambda, const float *edge_pot, const float *m1, const float *m2, const float *m3, const float *pot, float *out) {
+    for (unsigned j = 0; j < labels; ++j) {
+        out[j] = CUDART_MAX_NORMAL_F;
+        for (unsigned i = 0; i < labels; ++i) {
+            const float pairwise = lambda * edge_pot[j * labels + i];
+            const float unary = m1[i] + m2[i] + m3[i] + pot[i];
 
-__device__ const float *cndx(const unsigned labels, const unsigned width, const float *dir, const unsigned x, const unsigned y) {
-    return labels * (x + y * width) + dir;
+            out[j] = fminf(out[j], unary + pairwise);
+        }
+    }
 }
 
 }
@@ -144,38 +160,56 @@ __global__ void trbp_run(const unsigned labels, const unsigned w, const unsigned
 
     //printf("thread (%u, %u), block (%u, %u) %u %u\n", blockIdx.x, blockIdx.y, threadIdx.x, threadIdx.y, x, y);
 
-    const unsigned base = (w * y + x) * labels;
-    switch (type) {
-        case crf::L1:
-            if (rho) {
-                const float up = rho[(w * y + x) * 2];
-                const float left = rho[(w * y + x) * 2 + 1];
-                const float down = rho[(w * (y - 1) + x) * 2];
-                const float right = rho[(w * y + (x - 1)) * 2 + 1];
+    const float down = (w * y + x) * 2;
+    const float right = (w * y + x) * 2 + 1;
+    const float up = (w * (y - 1) + x) * 2;
+    const float left = (w * y + (x - 1)) * 2 + 1;
 
+    const unsigned base = (w * y + x) * labels;
+    if (rho) {
+        // directions are reversed since the edges are pointing into the node
+        const float up_ = rho[down]
+        const float left_ = rho[right];
+        const float down_ = rho[up];
+        const float right_ = rho[left];
+
+        switch (type) {
+            case crf::L1:
                 //                                           m1        m2        m3        opp
                 send_message_L1(labels, x, y, lambda, trunc, u + base, d + base, r + base, l + base
-                                                           , up      , down    , right   , left     , pot + base, r + (w * y + x + 1) * labels);
+                                                           , up_     , down_   , right_  , left_    , pot + base, r + (w * y + x + 1) * labels);
 
                 send_message_L1(labels, x, y, lambda, trunc, u + base, d + base, l + base, r + base
-                                                           , up      , down    , left    , right    , pot + base, l + (w * y + x - 1) * labels);
+                                                           , up_     , down_   , left_   , right_   , pot + base, l + (w * y + x - 1) * labels);
 
                 send_message_L1(labels, x, y, lambda, trunc, d + base, l + base, r + base, u + base
-                                                           , down    , left    , right   , up       , pot + base, d + (w * (y + 1) + x) * labels);
+                                                           , down_   , left_   , right_  , up_      , pot + base, d + (w * (y + 1) + x) * labels);
 
                 send_message_L1(labels, x, y, lambda, trunc, u + base, l + base, r + base, d + base
-                                                           , up      , left    , right   , down     , pot + base, u + (w * (y - 1) + x) * labels);
-            } else {
+                                                           , up_     , left_   , right_  , down_    , pot + base, u + (w * (y - 1) + x) * labels);
+                break;
+            case crf::L2: // TODO:
+                break;
+            case crf::ARRAY: // TODO:
+                break;
+        }
+    } else {
+        switch (type) {
+            case crf::L1:
                 send_message_L1(labels, x, y, lambda, trunc, u + base, d + base, r + base, pot + base, r + (w * y + x + 1) * labels);
                 send_message_L1(labels, x, y, lambda, trunc, u + base, d + base, l + base, pot + base, l + (w * y + x - 1) * labels);
                 send_message_L1(labels, x, y, lambda, trunc, d + base, l + base, r + base, pot + base, d + (w * (y + 1) + x) * labels);
                 send_message_L1(labels, x, y, lambda, trunc, u + base, l + base, r + base, pot + base, u + (w * (y - 1) + x) * labels);
-            }
-            break;
-        case crf::L2: // TODO:
-            break;
-        case crf::ARRAY: // TODO:
-            break;
+                break;
+            case crf::L2: // TODO:
+                break;
+            case crf::ARRAY:
+                send_message_array(labels, x, y, lambda, edx(labels, w, pairwise, right), u + base, d + base, r + base, pot + base, r + (w * y + x + 1) * labels);
+                send_message_array(labels, x, y, lambda, edx(labels, w, pairwise, left) , u + base, d + base, l + base, pot + base, l + (w * y + x - 1) * labels);
+                send_message_array(labels, x, y, lambda, edx(labels, w, pairwise, down) , d + base, l + base, r + base, pot + base, d + (w * (y + 1) + x) * labels);
+                send_message_array(labels, x, y, lambda, edx(labels, w, pairwise, up)   , u + base, l + base, r + base, pot + base, u + (w * (y - 1) + x) * labels);
+                break;
+        }
     }
 }
 
