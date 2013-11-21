@@ -47,20 +47,16 @@ namespace {
     }
 
     template <class M>
-    void runner(const std::shared_ptr<M> m, const infer::crf &crf, const unsigned rounds, const bool verbose) {
+    const std::vector<unsigned> runner(std::unique_ptr<M> m, const infer::crf &crf, const unsigned rounds, const bool verbose) {
         if (verbose) {
             for (unsigned i = 0; i < rounds; ++i) {
                 m->run(1);
-
-                if (std::shared_ptr<infer::qp> qp = std::dynamic_pointer_cast<infer::qp>(m)) {
-                    std::cout << qp->objective() << " ";
-                }
-
                 output_energy(m->get_name(), m->get_result(), crf, std::to_string(i));
             }
         } else {
             m->run(rounds);
         }
+        return m->get_result();
     }
 }
 
@@ -121,19 +117,18 @@ int main(int argc, char *argv[]) {
             }
 
             // normal methods
-            std::shared_ptr<infer::method> method;
+            std::unique_ptr<infer::method> method;
 
             if (algorithm == "bp") {
-                method = std::shared_ptr<infer::method>(new infer::bp(crf, sync));
+                method = std::unique_ptr<infer::method>(new infer::bp(crf, sync));
             } else if (algorithm == "trbp") {
-                method = std::shared_ptr<infer::method>(new infer::trbp(crf, infer::sample_edge_apparence(crf.width_, crf.height_, mst_samples), sync));
+                method = std::unique_ptr<infer::method>(new infer::trbp(crf, infer::sample_edge_apparence(crf.width_, crf.height_, mst_samples), sync));
             } else if (algorithm == "qp") {
-                method = std::shared_ptr<infer::method>(new infer::qp(crf));
+                method = std::unique_ptr<infer::method>(new infer::qp(crf));
             }
 
             if (method) {
-                runner(method, crf, rounds, verbose);
-                return static_cast<const std::vector<unsigned>>(method->get_result());
+                return runner(std::move(method), crf, rounds, verbose);
             } else {
                 throw std::runtime_error("Unknown algorithm: " + algorithm);
             }
@@ -141,26 +136,24 @@ int main(int argc, char *argv[]) {
 #ifdef GPU_SUPPORT
 
             // construct the corresponding CRF for the GPU
-            infer::cuda::crf gpu_crf = [&crf](){
-                if (crf.type_ == crf::type::ARRAY) {
-                    return cuda::crf(crf.width_, crf.height_, crf.labels_, crf.unary_, crf.lambda_, crf.pairwise_);
-                } else {
-                    const unsigned norm = type_ == crf::type::L1 ? 1 : 2;
-                    return cuda::crf(crf.width_, crf.height_, crf.labels_, crf.unary_, crf.lambda_, norm, crf.trunc_);
-                }
-            }();
+            std::unique_ptr<infer::cuda::crf> gpu_crf;
+            if (crf.type_ == infer::crf::type::ARRAY) {
+                gpu_crf = std::unique_ptr<infer::cuda::crf>(new infer::cuda::crf(crf.width_, crf.height_, crf.labels_, crf.unary_, crf.lambda_, crf.pairwise_));
+            } else {
+                const unsigned norm = crf.type_ == infer::crf::type::L1 ? 1 : 2;
+                gpu_crf = std::unique_ptr<infer::cuda::crf>(new infer::cuda::crf(crf.width_, crf.height_, crf.labels_, crf.unary_, crf.lambda_, norm, crf.trunc_));
+            }
 
-            std::shared_ptr<infer::cuda::method> gpu_method;
+            std::unique_ptr<infer::cuda::method> gpu_method;
 
             if (algorithm == "gpu_bp") {
-                gpu_method = std::shared_ptr<infer::cuda::method>(new infer::cuda::bp(gpu_crf));
+                gpu_method = std::unique_ptr<infer::cuda::method>(new infer::cuda::bp(*gpu_crf));
             } else if (algorithm == "gpu_trbp") {
-                gpu_method = std::shared_ptr<infer::cuda::method>(new infer::cuda::trbp(gpu_crf, infer::sample_edge_apparence(crf.width_, crf.height_, mst_samples)));
+                gpu_method = std::unique_ptr<infer::cuda::method>(new infer::cuda::trbp(*gpu_crf, infer::sample_edge_apparence(crf.width_, crf.height_, mst_samples)));
             }
 
             if (gpu_method) {
-                runner(gpu_method, crf, rounds, verbose);
-                return gpu_method->get_result();
+                return runner(std::move(gpu_method), crf, rounds, verbose);
             } else {
                 throw std::runtime_error("Unknown GPU algorithm: " + algorithm);
             }
