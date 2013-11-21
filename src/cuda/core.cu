@@ -19,6 +19,13 @@ __device__ const float *edx(const unsigned labels, const unsigned width, const f
     return width * labels * labels + pairwise;
 }
 
+__device__ void normalise(const unsigned labels, float *out) {
+    const float val = out[0];
+    for (unsigned i = 0; i < labels; ++i) {
+        out[i] -= val;
+    }
+}
+
 __device__ void fast_L1_helper(const unsigned labels, const float curr_min, const float s, const float t, float *out) {
 
     // do the O(n) trick
@@ -35,11 +42,7 @@ __device__ void fast_L1_helper(const unsigned labels, const float curr_min, cons
         out[i] = fminf(curr_min + t, out[i]);
     }
 
-    // normalise
-    const float val = out[0];
-    for (unsigned i = 0; i < labels; ++i) {
-        out[i] -= val;
-    }
+    normalise(labels, out);
 }
 
 __device__ void send_message_L1(const unsigned labels, const unsigned x, const unsigned y, const float lambda, const float trunc, const float *m1, const float *m2, const float *m3, const float *pot, float *out) {
@@ -82,8 +85,27 @@ __device__ void send_message_array(const unsigned labels, const unsigned x, cons
             out[j] = fminf(out[j], unary + pairwise);
         }
     }
+
+    normalise(labels, out);
 }
 
+__device__ void send_message_array(const unsigned labels, const unsigned x, const unsigned y, const float lambda, const float *edge_pot
+                                 , const float *m1, const float *m2, const float *m3, const float *opp
+                                 , const float rm1, const float rm2, const float rm3, const float ropp
+                                 , const float *pot, float *out) {
+
+    for (unsigned j = 0; j < labels; ++j) {
+        out[j] = CUDART_MAX_NORMAL_F;
+        for (unsigned i = 0; i < labels; ++i) {
+            const float pairwise = (1 / ropp) * lambda * edge_pot[j * labels + i];
+            const float unary = m1[i] * rm1 + m2[i] * rm2 + m3[i] * rm3 - opp[i] * (1 - ropp) + pot[i];
+
+            out[j] = fminf(out[j], unary + pairwise);
+        }
+    }
+
+    normalise(labels, out);
+}
 }
 
 /** initalise messages using the messages from the layer below */
@@ -160,15 +182,15 @@ __global__ void trbp_run(const unsigned labels, const unsigned w, const unsigned
 
     //printf("thread (%u, %u), block (%u, %u) %u %u\n", blockIdx.x, blockIdx.y, threadIdx.x, threadIdx.y, x, y);
 
-    const float down = (w * y + x) * 2;
-    const float right = (w * y + x) * 2 + 1;
-    const float up = (w * (y - 1) + x) * 2;
-    const float left = (w * y + (x - 1)) * 2 + 1;
+    const unsigned down = (w * y + x) * 2;
+    const unsigned right = (w * y + x) * 2 + 1;
+    const unsigned up = (w * (y - 1) + x) * 2;
+    const unsigned left = (w * y + (x - 1)) * 2 + 1;
 
     const unsigned base = (w * y + x) * labels;
     if (rho) {
         // directions are reversed since the edges are pointing into the node
-        const float up_ = rho[down]
+        const float up_ = rho[down];
         const float left_ = rho[right];
         const float down_ = rho[up];
         const float right_ = rho[left];
@@ -190,7 +212,22 @@ __global__ void trbp_run(const unsigned labels, const unsigned w, const unsigned
                 break;
             case crf::L2: // TODO:
                 break;
-            case crf::ARRAY: // TODO:
+            case crf::ARRAY:
+                send_message_array(labels, x, y, lambda, edx(labels, w, pairwise, right)
+                                                       , u + base, d + base, r + base, l + base
+                                                       , up_     , down_   , right_  , left_    , pot + base, r + (w * y + x + 1) * labels);
+
+                send_message_array(labels, x, y, lambda, edx(labels, w, pairwise, right)
+                                                       , u + base, d + base, l + base, r + base
+                                                       , up_     , down_   , left_   , right_   , pot + base, l + (w * y + x - 1) * labels);
+
+                send_message_array(labels, x, y, lambda, edx(labels, w, pairwise, right)
+                                                       , d + base, l + base, r + base, u + base
+                                                       , down_   , left_   , right_  , up_      , pot + base, d + (w * (y + 1) + x) * labels);
+
+                send_message_array(labels, x, y, lambda, edx(labels, w, pairwise, right)
+                                                       , u + base, l + base, r + base, d + base
+                                                       , up_     , left_   , right_  , down_    , pot + base, u + (w * (y - 1) + x) * labels);
                 break;
         }
     } else {
