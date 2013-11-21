@@ -20,15 +20,17 @@
 namespace {
     const unsigned mst_samples = 200;
 
-    const unsigned hbp_layers = 5;
+    const unsigned layers = 5;
     const unsigned rounds_per_layer = 10;
 
     const std::string help_string =
-        "./driver [algorithm] (-v) (-r rounds) [example] ...\n"
+        "./driver [algorithm] (-a) (-v) (-r rounds) [example] ...\n"
         "    algorithm\n"
-        "        bp, bp_async, trbp, trbp_async, hbp, hbp_async, gpu_bp, gpu_trbp, or gpu_hbp\n"
+        "        bp, trbp, hbp, trhbp, gpu_bp, gpu_trbp, or gpu_hbp\n"
         "    example\n"
         "        stereo, iseg, or restore\n"
+        "    -a async (optional)\n"
+        "        run async version of the algorithm (slower, but better final result)\n"
         "    -v verbose (optional)\n"
         "        enables verbose output, prints energy per round\n"
         "    -r rounds (optional)\n"
@@ -49,6 +51,11 @@ namespace {
         if (verbose) {
             for (unsigned i = 0; i < rounds; ++i) {
                 m->run(1);
+
+                if (std::shared_ptr<infer::qp> qp = std::dynamic_pointer_cast<infer::qp>(m)) {
+                    std::cout << qp->objective() << " ";
+                }
+
                 output_energy(m->get_name(), m->get_result(), crf, std::to_string(i));
             }
         } else {
@@ -72,18 +79,20 @@ int main(int argc, char *argv[]) {
     const std::string algorithm = args[1];
     unsigned offset = 2; // starting of the example arguments
 
-    unsigned rounds = 50;
-    bool verbose = false;
-
-    { // set verbose
-        const auto vswitch = std::find(args.cbegin(), args.cend(), "-v");
-        if (vswitch != args.cend()) {
-            verbose = true;
+    auto get_switch = [&offset, &args](const std::string s) {
+        const bool result = std::find(args.cbegin(), args.cend(), s) != args.cend();
+        if (result) {
             ++offset;
         }
-    }
+        return result;
+    };
 
-    { // set rounds
+    // set algorithm options
+    const bool verbose = get_switch("-v");
+    const bool sync = !get_switch("-a");
+    unsigned rounds = 50;
+
+    { // set number rounds
         const auto rswitch = std::find(args.cbegin(), args.cend(), "-r");
         if (rswitch < args.cend() - 1) {
             rounds = std::stoi(*(rswitch + 1));
@@ -94,45 +103,53 @@ int main(int argc, char *argv[]) {
     const std::string example = args[offset];
 
     // give a CRF, return the result using the chosen algorithm
-    std::function<const std::vector<unsigned>(const infer::crf)> method = [&algorithm, rounds, verbose](const infer::crf crf) {
+    std::function<const std::vector<unsigned>(const infer::crf)> method = [&algorithm, rounds, verbose, sync](const infer::crf crf) {
         if (algorithm.substr(0, 3) != "gpu") {
             // methods based on composition
             if (algorithm == "hbp") {
-                const std::vector<unsigned> result = infer::compose<infer::bp>(hbp_layers, rounds_per_layer, crf, [](const infer::crf &downsized) { return infer::bp(downsized, true); });
+                const std::vector<unsigned> result = infer::hbp(layers, rounds, sync, crf);
                 if (verbose) {
-                    output_energy("hbp", result, crf, std::to_string(hbp_layers) + "x" + std::to_string(rounds_per_layer));
+                    output_energy(algorithm + (!sync ? "_async" : "") , result, crf, std::to_string(layers) + "x" + std::to_string(rounds_per_layer));
                 }
-            } else if (algorithm == "hbp_async") {
-                const std::vector<unsigned> result = infer::compose<infer::bp>(hbp_layers, rounds_per_layer, crf, [](const infer::crf &downsized) { return infer::bp(downsized, false); });
+                return result;
+            } else if (algorithm == "trhbp") {
+                const std::vector<unsigned> result = infer::trhbp(layers, rounds, infer::sample_edge_apparence(crf.width_, crf.height_, mst_samples, layers), sync, crf);
                 if (verbose) {
-                    output_energy("hbp_async", result, crf, std::to_string(hbp_layers) + "x" + std::to_string(rounds_per_layer));
+                    output_energy(algorithm + (!sync ? "_async" : "") , result, crf, std::to_string(layers) + "x" + std::to_string(rounds_per_layer));
                 }
+                return result;
             }
 
             // normal methods
             std::shared_ptr<infer::method> method;
 
             if (algorithm == "bp") {
-                method = std::shared_ptr<infer::method>(new infer::bp(crf, true));
-            } else if (algorithm == "bp_async") {
-                method = std::shared_ptr<infer::method>(new infer::bp(crf, false));
+                method = std::shared_ptr<infer::method>(new infer::bp(crf, sync));
             } else if (algorithm == "trbp") {
-                method = std::shared_ptr<infer::method>(new infer::trbp(crf, infer::sample_edge_apparence(crf.width_, crf.height_, mst_samples), true));
-            } else if (algorithm == "trbp_async") {
-                method = std::shared_ptr<infer::method>(new infer::trbp(crf, infer::sample_edge_apparence(crf.width_, crf.height_, mst_samples), false));
+                method = std::shared_ptr<infer::method>(new infer::trbp(crf, infer::sample_edge_apparence(crf.width_, crf.height_, mst_samples), sync));
             } else if (algorithm == "qp") {
                 method = std::shared_ptr<infer::method>(new infer::qp(crf));
             }
 
             if (method) {
                 runner(method, crf, rounds, verbose);
-                return method->get_result();
+                return static_cast<const std::vector<unsigned>>(method->get_result());
             } else {
                 throw std::runtime_error("Unknown algorithm: " + algorithm);
             }
         } else {
 #ifdef GPU_SUPPORT
-            infer::cuda::crf gpu_crf = crf.to_gpu();
+
+            // construct the corresponding CRF for the GPU
+            infer::cuda::crf gpu_crf = [&crf](){
+                if (crf.type_ == crf::type::ARRAY) {
+                    return cuda::crf(crf.width_, crf.height_, crf.labels_, crf.unary_, crf.lambda_, crf.pairwise_);
+                } else {
+                    const unsigned norm = type_ == crf::type::L1 ? 1 : 2;
+                    return cuda::crf(crf.width_, crf.height_, crf.labels_, crf.unary_, crf.lambda_, norm, crf.trunc_);
+                }
+            }();
+
             std::shared_ptr<infer::cuda::method> gpu_method;
 
             if (algorithm == "gpu_bp") {
