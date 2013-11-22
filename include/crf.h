@@ -17,7 +17,7 @@ public:
      * The type of the pairwise term of this CRF
      */
     enum class type {
-        ARRAY, L1, L2
+        ARRAY, SMALL_ARRAY, L1
     };
 
     const unsigned width_, height_, labels_;
@@ -37,29 +37,29 @@ private:
 
 public:
     /**
-     * Initalise the grid CRF with a linear or quadratic potential
+     * Initalise the grid CRF with a linear truncation pairwise term
      *
      * @param width width of the CRF grid
      * @param height height of the CRF grid
      * @param labels number of labels in the CRF
      * @param potentials a width x height x label array of unary potentials
      * @param lambda scaling of the pairwise potentials
-     * @param norm 1 or 2
      * @param trunc constant used to truncate the norm
      */
-   explicit crf(const unsigned width, const unsigned height, const unsigned labels, const std::vector<float> unary, const float lambda, const unsigned norm, const unsigned truc);
+    explicit crf(const unsigned width, const unsigned height, const unsigned labels, const std::vector<float> unary, const float lambda, const float trunc);
 
     /**
-     * Initalise the grid CRF with an array of width x height x labels x labels x 2 pairwise terms
+     * Initalise the grid CRF with explicit pairwise potentials
      *
      * @param width width of the CRF grid
      * @param height height of the CRF grid
      * @param labels number of labels in the CRF
      * @param potentials a width x height x label array of unary potentials
      * @param lambda scaling of the pairwise potentials
-     * @param potentials a width x height x label x label x 2 array of potentials
+     * @param small whether the edge potential are specified for only a pair of nodes or for all edges
+     * @param potentials if only a pair of nodes, labels x labels potential are expected, otherwise width x height x label x label x 2 potentials are expected
      */
-    explicit crf(const unsigned width, const unsigned height, const unsigned labels, const std::vector<float> unary, const float lambda, const std::vector<float> pairwise);
+    explicit crf(const unsigned width, const unsigned height, const unsigned labels, const std::vector<float> unary, const float lambda, const bool small, const std::vector<float> pairwise);
 
     /**
      * Gets the unary potential given the node's coordinates and label

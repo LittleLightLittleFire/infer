@@ -42,7 +42,6 @@ inline void send_msg(const crf &crf_
                 std::transform(out, out + labels, out, [trunc_min](const float x){ return std::min(x, trunc_min); });
             }
             break;
-        case crf::type::L2: // TODO: optimised L2 norm algorithm
         case crf::type::ARRAY:
         default:
             for (unsigned i = 0; i < labels; ++i) {
