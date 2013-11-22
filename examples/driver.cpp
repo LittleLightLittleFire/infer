@@ -139,11 +139,16 @@ int main(int argc, char *argv[]) {
 
             // construct the corresponding CRF for the GPU
             std::unique_ptr<infer::cuda::crf> gpu_crf;
-            if (crf.type_ == infer::crf::type::ARRAY) {
-                gpu_crf = std::unique_ptr<infer::cuda::crf>(new infer::cuda::crf(crf.width_, crf.height_, crf.labels_, crf.unary_, crf.lambda_, crf.pairwise_));
-            } else {
-                const unsigned norm = crf.type_ == infer::crf::type::L1 ? 1 : 2;
-                gpu_crf = std::unique_ptr<infer::cuda::crf>(new infer::cuda::crf(crf.width_, crf.height_, crf.labels_, crf.unary_, crf.lambda_, norm, crf.trunc_));
+            switch (crf.type_) {
+                case infer::crf::type::SMALL_ARRAY:
+                    gpu_crf = std::unique_ptr<infer::cuda::crf>(new infer::cuda::crf(crf.width_, crf.height_, crf.labels_, crf.unary_, crf.lambda_, true, crf.pairwise_));
+                    break;
+                case infer::crf::type::ARRAY:
+                    gpu_crf = std::unique_ptr<infer::cuda::crf>(new infer::cuda::crf(crf.width_, crf.height_, crf.labels_, crf.unary_, crf.lambda_, false, crf.pairwise_));
+                    break;
+                case infer::crf::type::L1:
+                    gpu_crf = std::unique_ptr<infer::cuda::crf>(new infer::cuda::crf(crf.width_, crf.height_, crf.labels_, crf.unary_, crf.lambda_, crf.trunc_));
+                    break;
             }
 
             // hbp is different

@@ -11,17 +11,30 @@ namespace cuda {
 qp::qp(const crf &crf)
     : method(crf)
     , dev_mu1_(0)
-    , dev_mu2_(0) {
+    , dev_mu2_(0)
+    , dev_pair_(0) {
 
     const size_t size = crf.width_ * crf.height_ * crf.labels_ * sizeof(float);
     cuda_check(cudaMalloc(&dev_mu1_, size));
     cuda_check(cudaMalloc(&dev_mu2_, size));
 
     // initalise with -ve exp
-    dim3 block(16, 16);
-    dim3 grid((crf_.width_ + block.x - 1) / block.x, (crf_.height_ + block.y - 1) / block.y);
-    qp_initalise<<<grid, block>>>(crf_.labels_, crf_.width_, crf_.height_, crf.dev_unary_, dev_mu1_);
-    cuda_check(cudaGetLastError());
+    {
+        dim3 block(16, 16);
+        dim3 grid((crf_.width_ + block.x - 1) / block.x, (crf_.height_ + block.y - 1) / block.y);
+        qp_initalise<<<grid, block>>>(crf_.labels_, crf_.width_, crf_.height_, crf.dev_unary_, dev_mu1_);
+        cuda_check(cudaGetLastError());
+    }
+
+    // create pairwise potentials as required
+    if (crf_.type_ == crf::L1) {
+        cuda_check(cudaMalloc(&dev_pair_, crf_.labels_ * crf_.labels_ * sizeof(float)));
+
+        dim3 block(crf_.labels_, crf_.labels_);
+        dim3 grid(1, 1);
+        make_linear_trunc<<<grid, block>>>(crf_.labels_, crf_.trunc_, dev_pair_);
+        cuda_check(cudaGetLastError());
+    }
 }
 
 void qp::update_dev_result() const {
@@ -41,7 +54,12 @@ void qp::run(const unsigned iterations) {
     dim3 grid((crf_.width_ + block.x - 1) / block.x, (crf_.height_ + block.y - 1) / block.y);
 
     for (unsigned i = 0; i < iterations; ++i) {
-        qp_run<<<grid, block>>>(crf_.labels_, crf_.width_, crf_.height_, crf_.dev_unary_, crf_.lambda_, crf_.dev_pairwise_, crf_.type_, dev_mu1_, dev_mu2_);
+        if (crf_.type_ == crf::L1) {
+            qp_run<<<grid, block>>>(crf_.labels_, crf_.width_, crf_.height_, crf_.dev_unary_, crf_.lambda_, dev_pair_, crf::SMALL_ARRAY, dev_mu1_, dev_mu2_);
+        } else {
+            qp_run<<<grid, block>>>(crf_.labels_, crf_.width_, crf_.height_, crf_.dev_unary_, crf_.lambda_, crf_.dev_pairwise_, crf_.type_, dev_mu1_, dev_mu2_);
+        }
+
         cuda_check(cudaGetLastError());
 
         std::swap(dev_mu1_, dev_mu2_);
@@ -55,6 +73,10 @@ std::string qp::get_name() const {
 qp::~qp() {
     cudaFree(dev_mu1_);
     cudaFree(dev_mu2_);
+
+    if (dev_pair_) {
+        cudaFree(dev_pair_);
+    }
 }
 
 }

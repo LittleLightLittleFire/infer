@@ -362,21 +362,29 @@ __global__ void qp_run(const unsigned labels, const unsigned w, const unsigned h
     // calculate gradient
     float sum = 0;
 
-    switch (type) {
-        case crf::ARRAY:
-            for (unsigned i = 0; i < labels; ++i) {
-                float grad = 0;
+    for (unsigned i = 0; i < labels; ++i) {
+        float grad = 0;
+
+        switch (type) {
+            // there is no shortcut for L1, L1 is convered to small array
+            case crf::SMALL_ARRAY:
+                grad += edge_contribution(labels, i, lambda, pairwise, cndx(labels, w, mu, x+1, y));
+                grad += edge_contribution(labels, i, lambda, pairwise, cndx(labels, w, mu, x-1, y));
+                grad += edge_contribution(labels, i, lambda, pairwise, cndx(labels, w, mu, x, y+1));
+                grad += edge_contribution(labels, i, lambda, pairwise, cndx(labels, w, mu, x, y-1));
+                break;
+            case crf::ARRAY:
                 grad += edge_contribution(labels, i, lambda, edx(labels, pairwise, right), cndx(labels, w, mu, x+1, y));
                 grad += edge_contribution(labels, i, lambda, edx(labels, pairwise, left) , cndx(labels, w, mu, x-1, y));
                 grad += edge_contribution(labels, i, lambda, edx(labels, pairwise, up)   , cndx(labels, w, mu, x, y+1));
                 grad += edge_contribution(labels, i, lambda, edx(labels, pairwise, down) , cndx(labels, w, mu, x, y-1));
+                break;
+        }
 
-                grad *= 2;
-                grad += expf(- cndx(labels, w, pot, x, y)[i]);
-                sum += ndx(labels, w, mu_out, x, y)[i] = cndx(labels, w, mu, x, y)[i] * grad;
-            }
-            break;
-        // TODO: SMALL_ARRAY
+        grad *= 2;
+
+        grad += expf(- cndx(labels, w, pot, x, y)[i]);
+        sum += ndx(labels, w, mu_out, x, y)[i] = cndx(labels, w, mu, x, y)[i] * grad;
     }
 
     normalise(labels, sum, ndx(labels, w, mu_out, x, y));
@@ -406,6 +414,13 @@ __global__ void qp_get_results(const unsigned labels, const unsigned w, const un
     }
 
     out[x + y * w] = max_label;
+}
+
+__global__ void make_linear_trunc(const unsigned labels, const float trunc, float *out) {
+    const unsigned x = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    out[x + y * labels] = fminf(fabs(static_cast<float>(x) - static_cast<float>(y)), trunc);
 }
 
 }

@@ -12,7 +12,7 @@ namespace cuda {
  */
 class qp : public method {
 protected:
-    float *dev_mu1_, *dev_mu2_;
+    float *dev_mu1_, *dev_mu2_, *dev_pair_;
 
 public:
     explicit qp(const crf &crf);

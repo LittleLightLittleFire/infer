@@ -20,6 +20,8 @@ __global__ void qp_run(const unsigned labels, const unsigned w, const unsigned h
 
 __global__ void qp_get_results(const unsigned labels, const unsigned w, const unsigned h, const float *mu, unsigned *out);
 
+__global__ void make_linear_trunc(const unsigned labels, const float trunc, float *out);
+
 }
 }
 
