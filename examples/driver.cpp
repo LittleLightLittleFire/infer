@@ -9,6 +9,7 @@
 #ifdef GPU_SUPPORT
 #include "cuda/bp.h"
 #include "cuda/trbp.h"
+#include "cuda/qp.h"
 #include "cuda/compose.h"
 #endif
 
@@ -160,6 +161,8 @@ int main(int argc, char *argv[]) {
                 gpu_method = std::unique_ptr<infer::cuda::method>(new infer::cuda::bp(*gpu_crf));
             } else if (algorithm == "gpu_trbp") {
                 gpu_method = std::unique_ptr<infer::cuda::method>(new infer::cuda::trbp(*gpu_crf, infer::sample_edge_apparence(crf.width_, crf.height_, mst_samples)));
+            } else if (algorithm == "gpu_qp") {
+                gpu_method = std::unique_ptr<infer::cuda::method>(new infer::cuda::qp(*gpu_crf));
             }
 
             if (gpu_method) {
