@@ -12,7 +12,7 @@ namespace cuda {
 class crf {
 public:
     enum type {
-        ARRAY, L1, L2
+        ARRAY, L1, SMALL_ARRAY
     };
 
     float *dev_unary_;
@@ -23,8 +23,8 @@ public:
     const float trunc_;
     float *dev_pairwise_;
 
-    explicit crf(const unsigned width, const unsigned height, const unsigned labels, const std::vector<float> unary, const float lambda, const unsigned norm, const unsigned trunc);
-    explicit crf(const unsigned width, const unsigned height, const unsigned labels, const std::vector<float> unary, const float lambda, const std::vector<float> pairwise);
+    explicit crf(const unsigned width, const unsigned height, const unsigned labels, const std::vector<float> unary, const float lambda, const unsigned trunc);
+    explicit crf(const unsigned width, const unsigned height, const unsigned labels, const std::vector<float> unary, const float lambda, const bool small, const std::vector<float> pairwise);
 
     explicit crf(const crf &prev, int);
     ~crf();

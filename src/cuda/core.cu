@@ -225,7 +225,22 @@ __global__ void trbp_run(const unsigned labels, const unsigned w, const unsigned
                 send_message_L1(labels, x, y, lambda, trunc, u + base, l + base, r + base, d + base
                                                            , up_     , left_   , right_  , down_    , pot + base, u + (w * (y - 1) + x) * labels);
                 break;
-            case crf::L2: // TODO:
+            case crf::SMALL_ARRAY:
+                send_message_array(labels, x, y, lambda, pairwise
+                                                       , u + base, d + base, r + base, l + base
+                                                       , up_     , down_   , right_  , left_    , pot + base, r + (w * y + x + 1) * labels);
+
+                send_message_array(labels, x, y, lambda, pairwise
+                                                       , u + base, d + base, l + base, r + base
+                                                       , up_     , down_   , left_   , right_   , pot + base, l + (w * y + x - 1) * labels);
+
+                send_message_array(labels, x, y, lambda, pairwise
+                                                       , d + base, l + base, r + base, u + base
+                                                       , down_   , left_   , right_  , up_      , pot + base, d + (w * (y + 1) + x) * labels);
+
+                send_message_array(labels, x, y, lambda, pairwise
+                                                       , u + base, l + base, r + base, d + base
+                                                       , up_     , left_   , right_  , down_    , pot + base, u + (w * (y - 1) + x) * labels);
                 break;
             case crf::ARRAY:
                 send_message_array(labels, x, y, lambda, edx(labels, pairwise, right)
@@ -253,7 +268,11 @@ __global__ void trbp_run(const unsigned labels, const unsigned w, const unsigned
                 send_message_L1(labels, x, y, lambda, trunc, d + base, l + base, r + base, pot + base, d + (w * (y + 1) + x) * labels);
                 send_message_L1(labels, x, y, lambda, trunc, u + base, l + base, r + base, pot + base, u + (w * (y - 1) + x) * labels);
                 break;
-            case crf::L2: // TODO:
+            case crf::SMALL_ARRAY:
+                send_message_array(labels, x, y, lambda, pairwise, u + base, d + base, r + base, pot + base, r + (w * y + x + 1) * labels);
+                send_message_array(labels, x, y, lambda, pairwise, u + base, d + base, l + base, pot + base, l + (w * y + x - 1) * labels);
+                send_message_array(labels, x, y, lambda, pairwise, d + base, l + base, r + base, pot + base, d + (w * (y + 1) + x) * labels);
+                send_message_array(labels, x, y, lambda, pairwise, u + base, l + base, r + base, pot + base, u + (w * (y - 1) + x) * labels);
                 break;
             case crf::ARRAY:
                 send_message_array(labels, x, y, lambda, edx(labels, pairwise, right), u + base, d + base, r + base, pot + base, r + (w * y + x + 1) * labels);
