@@ -14,4 +14,8 @@ namespace iseg {
 void run(const std::function<const std::vector<unsigned>(const infer::crf)> method, const std::string image_name, const std::string anno_name, const std::string output_name);
 }
 
+namespace denoise {
+void run(const std::function<const std::vector<unsigned>(const infer::crf)> method, const std::string image_name, const std::string output_name);
+}
+
 #endif // DRIVER_H

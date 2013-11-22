@@ -30,7 +30,7 @@ namespace {
         "    algorithm\n"
         "        bp, trbp, hbp, trhbp, gpu_bp, gpu_trbp, or gpu_hbp\n"
         "    example\n"
-        "        stereo, iseg, or restore\n"
+        "        stereo, iseg, or denoise\n"
         "    -a async (optional)\n"
         "        run async version of the algorithm (slower, but better final result)\n"
         "    -v verbose (optional)\n"
@@ -40,7 +40,7 @@ namespace {
         " additional options are required depeneding on the example: \n"
         "    ./driver [algorithm] stereo [labels] [scale] [left_image.png] [right_image.png] [out_image.png]\n"
         "    ./driver [algorithm] iseg [image.png] [annotation.png] [out_image.png]\n"
-        "    ./driver [algorithm] restore [image.png] [out_image.png]\n";
+        "    ./driver [algorithm] denoise [image.png] [out_image.png]\n";
 
     void output_energy(const std::string name, const std::vector<unsigned> result, const infer::crf &crf, const std::string round) {
         const float unary = crf.unary_energy(result);
@@ -178,14 +178,20 @@ int main(int argc, char *argv[]) {
     };
 
     if (example == "stereo") {
+        if (offset + 5 >= args.size()) {
+            std::cerr << "Not enough arguments for " << example << std::endl;
+        }
         stereo::run(method, std::stoi(args[offset+1]), std::stoi(args[offset+2]), args[offset+3], args[offset+4], args[offset+5]);
     } else if (example == "iseg") {
-        if (argc < 6) {
-            std::cerr << "Not enough arguments for iseg" << std::endl;
-            return 1;
+        if (offset + 3 >= args.size()) {
+            std::cerr << "Not enough arguments for " << example << std::endl;
         }
         iseg::run(method, args[offset+1], args[offset+2], args[offset+3]);
-    } else if (example == "restore") {
+    } else if (example == "denoise") {
+        if (offset + 2 >= args.size()) {
+            std::cerr << "Not enough arguments for " << example << std::endl;
+        }
+        denoise::run(method, args[offset+1], args[offset+2]);
     } else {
         std::cerr << "Unknown example: " << example << std::endl;
     }

@@ -114,7 +114,7 @@ void run(const std::function<const std::vector<unsigned>(const infer::crf)> meth
         }
     }
 
-    std::vector<unsigned> result = method(infer::crf(width, height, 2, unary, 1, pairwise));
+    std::vector<unsigned> result = method(infer::crf(width, height, 2, unary, 1, false, pairwise));
 
     // overwrite on top of anno_rgba
     for (unsigned i = 0; i < result.size(); ++i) {

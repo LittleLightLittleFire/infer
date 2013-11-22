@@ -47,7 +47,7 @@ void run(const std::function<const std::vector<unsigned>(const infer::crf)> meth
         }
     }
 
-    std::vector<unsigned> result = method(infer::crf(width, height, labels, unary, lambda, 1, smooth_trunc));
+    std::vector<unsigned> result = method(infer::crf(width, height, labels, unary, lambda, smooth_trunc));
     std::vector<unsigned char> image(result.size() * 4);
     for (unsigned i = 0; i < result.size(); ++i) {
         const float val = result[i] * scale;

@@ -19,14 +19,14 @@ all: $(TARGETS)
 %.o: %.cpp
 	$(CC) $(CFLAGS) -c $< -o $@
 
-driver: driver.o lodepng.o stereo.o iseg.o
+driver: driver.o lodepng.o stereo.o iseg.o denoise.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 test: driver
 	mkdir -p out
 	#./$< bp -v stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
 	#./$< gpu_bp -v stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba.png
-	./$< hbp -v stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba_hbp.png
+	#./$< hbp -v stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba_hbp.png
 	#./$< gpu_hbp -v stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba_hbp.png
 	#./$< trhbp -v stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba_trhbp.png
 	#./$< trhbp -v -a stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba_trhbp_a.png
@@ -35,6 +35,7 @@ test: driver
 	#./$< qp iseg data/postjp/postjp.png data/postjp/postjp_anno.png out/postjp.png
 	#./$< qp iseg data/palovigna/palovigna.png data/palovigna/palovigna_anno.png out/palovigna.png
 	#./$< qp iseg data/tendrils/tendrils.png data/tendrils/tendrils_anno.png out/tendrils.png
+	./$< qp -v -r 10 denoise data/penguin/penguin.png out/penguin.png
 
 pairs: driver
 	mkdir -p out
