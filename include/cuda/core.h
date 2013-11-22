@@ -14,6 +14,12 @@ __global__ void prime(const unsigned lbl, const unsigned w, const unsigned h, co
 
 __global__ void fill_next_layer_pot(const unsigned labels, const unsigned width, const unsigned height, const unsigned max_width, const unsigned max_height, const float *pot, float *out);
 
+__global__ void qp_initalise(const unsigned labels, const unsigned w, const unsigned h, const float *in, float *out);
+
+__global__ void qp_run(const unsigned labels, const unsigned w, const unsigned h, const float *pot, const float lambda, const float *pairwise, const crf::type type, const float *mu, float *mu_out);
+
+__global__ void qp_get_results(const unsigned labels, const unsigned w, const unsigned h, const float *mu, unsigned *out);
+
 }
 }
 

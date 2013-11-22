@@ -13,7 +13,7 @@ namespace cuda {
 class bp : public method {
 protected:
     float *dev_l_, *dev_r_, *dev_u_, *dev_d_;
-    unsigned current_iteration;
+    unsigned current_iteration_;
 
 public:
     explicit bp(const crf &crf);

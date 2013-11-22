@@ -10,7 +10,7 @@ namespace cuda {
 
 bp::bp(const crf &crf)
     : method(crf)
-    , current_iteration(0)
+    , current_iteration_(0)
     , dev_l_(0), dev_r_(0), dev_u_(0), dev_d_(0) {
 
     const size_t size = crf.width_ * crf.height_ * crf.labels_ * sizeof(float);
@@ -27,7 +27,7 @@ bp::bp(const crf &crf)
 
 bp::bp(const crf &crf, const bp::bp &prev)
     : method(crf)
-    , current_iteration(0)
+    , current_iteration_(0)
     , dev_l_(0), dev_r_(0), dev_u_(0), dev_d_(0) {
 
     const size_t size = crf.width_ * crf.height_ * crf.labels_ * sizeof(float);
@@ -58,9 +58,9 @@ void bp::run(const unsigned iterations) {
     dim3 grid(((crf_.width_ + 1) / 2 + block.x - 1) / block.x, (crf_.height_ + block.y - 1) / block.y);
 
     for (unsigned i = 0; i < iterations; ++i) {
-        ++current_iteration;
+        ++current_iteration_;
 
-        trbp_run<<<grid, block>>>(crf_.labels_, crf_.width_, crf_.height_, current_iteration, crf_.type_, crf_.lambda_, crf_.trunc_, crf_.dev_pairwise_, dev_l_, dev_r_, dev_u_, dev_d_, crf_.dev_unary_, 0);
+        trbp_run<<<grid, block>>>(crf_.labels_, crf_.width_, crf_.height_, current_iteration_, crf_.type_, crf_.lambda_, crf_.trunc_, crf_.dev_pairwise_, dev_l_, dev_r_, dev_u_, dev_d_, crf_.dev_unary_, 0);
         cuda_check(cudaGetLastError());
     }
 }
