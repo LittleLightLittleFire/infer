@@ -23,7 +23,6 @@ namespace {
     const unsigned mst_samples = 200;
 
     const unsigned layers = 5;
-    const unsigned rounds_per_layer = 10;
 
     const std::string help_string =
         "./driver [algorithm] (-a) (-v) (-r rounds) [example] ...\n"
@@ -36,7 +35,7 @@ namespace {
         "    -v verbose (optional)\n"
         "        enables verbose output, prints energy per round\n"
         "    -r rounds (optional)\n"
-        "        number of rounds to run, default 50 rounds, 5x10 rounds for hbp\n\n"
+        "        number of rounds to run, default 50 rounds\n\n"
         " additional options are required depeneding on the example: \n"
         "    ./driver [algorithm] stereo [labels] [scale] [left_image.png] [right_image.png] [out_image.png]\n"
         "    ./driver [algorithm] iseg [image.png] [annotation.png] [out_image.png]\n"
@@ -105,15 +104,15 @@ int main(int argc, char *argv[]) {
         if (algorithm.substr(0, 3) != "gpu") {
             // methods based on composition
             if (algorithm == "hbp") {
-                const std::vector<unsigned> result = infer::hbp(layers, rounds_per_layer, sync, crf);
+                const std::vector<unsigned> result = infer::hbp(layers, rounds, sync, crf);
                 if (verbose) {
-                    output_energy(algorithm + (!sync ? "_async" : "") , result, crf, std::to_string(layers) + "x" + std::to_string(rounds_per_layer));
+                    output_energy(algorithm + (!sync ? "_async" : "") , result, crf, std::to_string(layers) + "x" + std::to_string(rounds));
                 }
                 return result;
             } else if (algorithm == "trhbp") {
-                const std::vector<unsigned> result = infer::trhbp(layers, rounds_per_layer, infer::sample_edge_apparence(crf.width_, crf.height_, mst_samples, layers), sync, crf);
+                const std::vector<unsigned> result = infer::trhbp(layers, rounds, infer::sample_edge_apparence(crf.width_, crf.height_, mst_samples, layers), sync, crf);
                 if (verbose) {
-                    output_energy(algorithm + (!sync ? "_async" : "") , result, crf, std::to_string(layers) + "x" + std::to_string(rounds_per_layer));
+                    output_energy(algorithm + (!sync ? "_async" : "") , result, crf, std::to_string(layers) + "x" + std::to_string(rounds));
                 }
                 return result;
             }
@@ -153,9 +152,9 @@ int main(int argc, char *argv[]) {
 
             // hbp is different
             if (algorithm == "gpu_hbp") {
-                const std::vector<unsigned> result = infer::cuda::hbp(layers, rounds_per_layer, *gpu_crf);
+                const std::vector<unsigned> result = infer::cuda::hbp(layers, rounds, *gpu_crf);
                 if (verbose) {
-                    output_energy(algorithm, result, crf, std::to_string(layers) + "x" + std::to_string(rounds_per_layer));
+                    output_energy(algorithm, result, crf, std::to_string(layers) + "x" + std::to_string(rounds));
                 }
                 return result;
             }
