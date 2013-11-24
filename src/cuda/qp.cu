@@ -30,8 +30,8 @@ qp::qp(const crf &crf)
     if (crf_.type_ == crf::L1) {
         cuda_check(cudaMalloc(&dev_pair_, crf_.labels_ * crf_.labels_ * sizeof(float)));
 
-        dim3 block(crf_.labels_, crf_.labels_);
-        dim3 grid(1, 1);
+        dim3 block(16, 16);
+        dim3 grid((crf_.labels_ + block.x - 1 / block.x), (crf_.labels_ + block.y - 1) / block.y);
         make_linear_trunc<<<grid, block>>>(crf_.labels_, crf_.trunc_, dev_pair_);
         cuda_check(cudaGetLastError());
     }

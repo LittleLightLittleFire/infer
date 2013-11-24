@@ -420,6 +420,10 @@ __global__ void make_linear_trunc(const unsigned labels, const float trunc, floa
     const unsigned x = blockIdx.x * blockDim.x + threadIdx.x;
     const unsigned y = blockIdx.y * blockDim.y + threadIdx.y;
 
+    if (x >= labels || y >= labels) {
+        return;
+    }
+
     out[x + y * labels] = fminf(fabs(static_cast<float>(x) - static_cast<float>(y)), trunc);
 }
 
