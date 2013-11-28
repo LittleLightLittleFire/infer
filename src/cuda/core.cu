@@ -168,15 +168,15 @@ __global__ void fill_next_layer_pot(const unsigned labels, const unsigned width,
         }
     }
 
-    if (2 * (y + 1) < max_height) {
-        const float *bottom_left = cndx(labels, max_width, pot, 2 * x, 2 * (y + 1));
+    if (2 * y + 1 < max_height) {
+        const float *bottom_left = cndx(labels, max_width, pot, 2 * x, 2 * y + 1);
         for (unsigned i = 0; i < labels; ++i) {
             target[i] += bottom_left[i];
         }
     }
 
-    if (2 * x + 1 < max_width && 2 * (y + 1) < max_height) {
-        const float *bottom_right = cndx(labels, max_width, pot, 2 * x + 1, 2 * (y + 1));
+    if (2 * x + 1 < max_width && 2 * y + 1 < max_height) {
+        const float *bottom_right = cndx(labels, max_width, pot, 2 * x + 1, 2 * y + 1);
         for (unsigned i = 0; i < labels; ++i) {
             target[i] += bottom_right[i];
         }

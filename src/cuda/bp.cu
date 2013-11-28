@@ -36,8 +36,8 @@ bp::bp(const crf &crf, const bp::bp &prev)
     cuda_check(cudaMalloc(&dev_u_, size));
     cuda_check(cudaMalloc(&dev_d_, size));
 
-    dim3 block(15, 16); // only half of the pixels are updated because of the checkboard pattern
-    dim3 grid(((crf_.width_ + 1) / 2 + block.x - 1) / block.x, (crf_.height_ + block.y - 1) / block.y);
+    dim3 block(16, 16); // only half of the pixels are updated because of the checkboard pattern
+    dim3 grid((crf_.width_ + block.x - 1) / block.x, (crf_.height_ + block.y - 1) / block.y);
 
     prime<<<grid, block>>>(crf_.labels_, crf_.width_, crf_.height_, prev.crf_.width_, prev.dev_l_, dev_l_);
     cuda_check(cudaGetLastError());

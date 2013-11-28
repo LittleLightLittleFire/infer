@@ -1,7 +1,7 @@
 # Build options
 LIBRARY = libinfer.a
 GPU_SUPPORT = true
-DEBUG = true
+DEBUG =
 
 OPT = -O2
 
