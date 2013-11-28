@@ -32,10 +32,10 @@ test: driver
 	#./$< trhbp -v -a stereo 16 16 data/tsukuba/imL.png data/tsukuba/imR.png out/tsukuba_trhbp_a.png
 	#./$< hbp -v iseg data/leafpav/leafpav.png data/leafpav/leafpav_anno.png out/leafpav.png
 	#./$< bp -v -r 20 iseg data/leafpav/leafpav.png data/leafpav/leafpav_anno.png out/leafpav.png
-	#./$< qp iseg data/postjp/postjp.png data/postjp/postjp_anno.png out/postjp.png
-	#./$< qp iseg data/palovigna/palovigna.png data/palovigna/palovigna_anno.png out/palovigna.png
-	#./$< qp iseg data/tendrils/tendrils.png data/tendrils/tendrils_anno.png out/tendrils.png
-	#./$< qp -v -r 10 denoise data/penguin/penguin.png out/penguin.png
+	#./$< bp iseg data/postjp/postjp.png data/postjp/postjp_anno.png out/postjp.png
+	#./$< bp iseg data/palovigna/palovigna.png data/palovigna/palovigna_anno.png out/palovigna.png
+	#./$< bp iseg data/tendrils/tendrils.png data/tendrils/tendrils_anno.png out/tendrils.png
+	#./$< bp -v -r 10 denoise data/penguin/penguin.png out/penguin.png
 
 pairs: driver
 	mkdir -p out

@@ -3,13 +3,11 @@
 #include "bp.h"
 #include "trbp.h"
 #include "mst.h"
-#include "qp.h"
 #include "compose.h"
 
 #ifdef GPU_SUPPORT
 #include "cuda/bp.h"
 #include "cuda/trbp.h"
-#include "cuda/qp.h"
 #include "cuda/compose.h"
 #endif
 
@@ -27,7 +25,6 @@ namespace {
     const std::string help_string =
         "./driver [algorithm] (-a) (-v) (-r rounds) [example] ...\n"
         "    algorithm\n"
-        "        bp, trbp, hbp, trhbp, gpu_bp, gpu_trbp, or gpu_hbp\n"
         "    example\n"
         "        stereo, iseg, or denoise\n"
         "    -a async (optional)\n"
@@ -124,8 +121,6 @@ int main(int argc, char *argv[]) {
                 method = std::unique_ptr<infer::method>(new infer::bp(crf, sync));
             } else if (algorithm == "trbp") {
                 method = std::unique_ptr<infer::method>(new infer::trbp(crf, infer::sample_edge_apparence(crf.width_, crf.height_, mst_samples), sync));
-            } else if (algorithm == "qp") {
-                method = std::unique_ptr<infer::method>(new infer::qp(crf));
             }
 
             if (method) {
@@ -165,8 +160,6 @@ int main(int argc, char *argv[]) {
                 gpu_method = std::unique_ptr<infer::cuda::method>(new infer::cuda::bp(*gpu_crf));
             } else if (algorithm == "gpu_trbp") {
                 gpu_method = std::unique_ptr<infer::cuda::method>(new infer::cuda::trbp(*gpu_crf, infer::sample_edge_apparence(crf.width_, crf.height_, mst_samples)));
-            } else if (algorithm == "gpu_qp") {
-                gpu_method = std::unique_ptr<infer::cuda::method>(new infer::cuda::qp(*gpu_crf));
             }
 
             if (gpu_method) {

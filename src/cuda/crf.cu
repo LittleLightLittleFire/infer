@@ -4,6 +4,7 @@
 
 #include <cuda.h>
 #include <stdexcept>
+#include <iostream>
 
 namespace infer {
 namespace cuda {
@@ -39,7 +40,7 @@ crf::crf(const unsigned width, const unsigned height, const unsigned labels, con
     cuda_check(cudaMalloc(&dev_pairwise_, pair_sizes * sizeof(float)));
     cuda_check(cudaMemcpy(dev_pairwise_, &pairwise[0], pair_sizes * sizeof(float), cudaMemcpyHostToDevice));
 }
-
+ 
 crf::crf(const crf &prev, int)
     : width_((prev.width_ + 1) / 2)
     , height_((prev.height_ + 1) / 2)
@@ -54,7 +55,14 @@ crf::crf(const crf &prev, int)
         throw std::runtime_error("Cannot generate a scaled down version of a CRF with explicit pairwise potential are specified");
     }
 
-    cuda_check(cudaMalloc(&dev_unary_, width_ * height_ * labels_ * sizeof(float)));
+    const unsigned size = width_ * height_ * labels_;
+    cuda_check(cudaMalloc(&dev_unary_, size * sizeof(float)));
+
+    if (prev.type_ == SMALL_ARRAY || prev.type_ == ARRAY) {
+        const unsigned pair_sizes = prev.type_ == SMALL_ARRAY ? labels_ * labels_ : width_ * height_ * labels_ * labels_ * 2;
+        cuda_check(cudaMalloc(&dev_pairwise_, pair_sizes * sizeof(float)));
+        cuda_check(cudaMemcpy(dev_pairwise_, prev.dev_pairwise_, pair_sizes * sizeof(float), cudaMemcpyDeviceToDevice));
+    }
 
     // initalise the new potential from the previous one
     dim3 block(16, 16);
@@ -62,6 +70,7 @@ crf::crf(const crf &prev, int)
 
     fill_next_layer_pot<<<grid, block>>>(labels_, width_, height_, prev.width_, prev.height_, prev.dev_unary_, dev_unary_);
     cuda_check(cudaGetLastError());
+
 }
 
 crf::~crf() {

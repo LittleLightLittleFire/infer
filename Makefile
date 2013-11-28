@@ -6,10 +6,10 @@ CFLAGS += -Iinclude
 CUDA_CFLAGS += -Iinclude
 
 # CPU sources
-SRCS = crf.cpp method.cpp bp.cpp qp.cpp trbp.cpp mst.cpp
+SRCS = crf.cpp method.cpp bp.cpp trbp.cpp mst.cpp
 
 # GPU sources
-CUDA_SRCS = crf.cu method.cu bp.cu util.cu trbp.cu core.cu compose.cu qp.cu
+CUDA_SRCS = crf.cu method.cu bp.cu util.cu trbp.cu core.cu compose.cu
 
 LIBRARY_OBJS = $(SRCS:.cpp=.o)
 CUDA_OBJS = $(CUDA_SRCS:.cu=.cuo)
